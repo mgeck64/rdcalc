@@ -37,7 +37,7 @@ public:
     static constexpr auto num_type_short_txt = std::array
         // short text for UI.
         // elements correspond with num_type variant so index() can be used as index
-        {"Int8", "UInt8", "Int16", "UInt16", "Int32", "UInt32", "Int64", "UInt64", "Float"};
+        {"Int8", "UInt8", "Int16", "UInt16", "Int32", "UInt32", "Int64", "UInt64", "FP"};
     using widest_uint_type = std::uint64_t;
     using widest_int_type = std::int64_t;
 

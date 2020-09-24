@@ -194,7 +194,7 @@ auto calc_outputter<CharT>::output_as_ieee_double(ostream& out, float_type val, 
             out << '.';
 
 			auto significand = ieee_val.significand();
-			decltype(significand) pilot = 0xfffffffffffff;
+			decltype(significand) pilot = 0xfffffffffffff; // this will cause leading 0's in significand (i.e., fraction) to be preserved
 			size_t mask = 0;
 			decltype(significand) reversed = 0;
 
@@ -208,6 +208,7 @@ auto calc_outputter<CharT>::output_as_ieee_double(ostream& out, float_type val, 
 				// last (rightmost) digit isn't "full" (52%3 == 1; 52 is bit width of significand field; 3 is bit width of octal digit)
 				reversed = significand & 1;
 				significand >>= 1;
+				pilot >>= 1;
 			} else if (radix == 16) {
 				mask = 15;
 				shift = 4;
