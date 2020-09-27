@@ -86,6 +86,8 @@ inline auto calc_outputter<CharT>::output_oct(ostream& out, num_type num_val) ->
 template <typename CharT>
 auto calc_outputter<CharT>::output_dec(ostream& out, num_type num_val) -> ostream& {
 	auto flags = out.flags();
+	auto precision = out.precision();
+	out.precision(15);
 	std::visit([&](auto val) {
 		if constexpr (!std::is_integral_v<decltype(val)>)
 			out << std::defaultfloat << val;
@@ -98,6 +100,7 @@ auto calc_outputter<CharT>::output_dec(ostream& out, num_type num_val) -> ostrea
 		}
 	}, num_val);
 	out.flags(flags);
+	out.precision(precision);
 	return out;
 }
 
@@ -197,6 +200,7 @@ auto calc_outputter<CharT>::output_as_ieee_double(ostream& out, float_type val, 
 			decltype(significand) pilot = 0xfffffffffffff; // this will cause leading 0's in significand (i.e., fraction) to be preserved
 			size_t mask = 0;
 			decltype(significand) reversed = 0;
+			size_t last = 0;
 
 			size_t shift = 0;
 			if (radix == 2) {
@@ -205,8 +209,9 @@ auto calc_outputter<CharT>::output_as_ieee_double(ostream& out, float_type val, 
 			} else if (radix == 8) {
 				mask = 7;
 				shift = 3;
-				// last (rightmost) digit isn't "full" (52%3 == 1; 52 is bit width of significand field; 3 is bit width of octal digit)
-				reversed = significand & 1;
+				// special case: last (rightmost) digit is only 1 bit wide
+				// (52%3 == 1; 52 is bit width of significand field; 3 is bit width of octal digit)
+				last = significand & 1;
 				significand >>= 1;
 				pilot >>= 1;
 			} else if (radix == 16) {
@@ -227,7 +232,12 @@ auto calc_outputter<CharT>::output_as_ieee_double(ostream& out, float_type val, 
 				out << digits.at(reversed & mask);
 				reversed >>= shift;
 			}
-			
+
+			if (last) { // test to prevent trailing 0
+				assert(last < digits.size());
+				out << digits.at(last);
+			}
+
 			// note: can't use output_as_uint for this because this algorithm
 			// basically interprets significand left-to-right
         }
