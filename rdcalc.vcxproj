@@ -158,6 +158,7 @@
     <ClInclude Include="calc_outputter.h" />
     <ClInclude Include="calc_parser.h" />
     <ClInclude Include="char_helper.h" />
+    <ClInclude Include="stream_state_restorer.h" />
     <ClInclude Include="ieee_double.h" />
     <ClInclude Include="lookahead.h" />
     <ClInclude Include="parse_error.h" />

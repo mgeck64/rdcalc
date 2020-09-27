@@ -53,5 +53,8 @@
     <ClInclude Include="ieee_double.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="stream_state_restorer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

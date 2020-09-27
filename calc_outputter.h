@@ -4,6 +4,7 @@
 
 #include "calc_parser.h"
 #include "ieee_double.h"
+#include "stream_state_restorer.h"
 #include <ostream>
 
 template <typename CharT>
@@ -85,8 +86,7 @@ inline auto calc_outputter<CharT>::output_oct(ostream& out, num_type num_val) ->
 
 template <typename CharT>
 auto calc_outputter<CharT>::output_dec(ostream& out, num_type num_val) -> ostream& {
-	auto flags = out.flags();
-	auto precision = out.precision();
+	stream_state_restorer restorer(out);
 	out.precision(15);
 	std::visit([&](auto val) {
 		if constexpr (!std::is_integral_v<decltype(val)>)
@@ -99,8 +99,6 @@ auto calc_outputter<CharT>::output_dec(ostream& out, num_type num_val) -> ostrea
 			out << std::dec << static_cast<widest_uint_type>(val); // ditto
 		}
 	}, num_val);
-	out.flags(flags);
-	out.precision(precision);
 	return out;
 }
 
@@ -173,7 +171,6 @@ auto calc_outputter<CharT>::output_as_uint(ostream& out, widest_uint_type val, u
 template <typename CharT>
 auto calc_outputter<CharT>::output_as_ieee_double(ostream& out, float_type val, unsigned radix) -> ostream& {
 	auto ieee_val = ieee_double(val);
-	auto flags = out.flags(); // will restore flags on exit
 
     if (ieee_val.is_negative())
         out << '-';
@@ -248,7 +245,6 @@ auto calc_outputter<CharT>::output_as_ieee_double(ostream& out, float_type val, 
         out << std::dec << exponent;
     }
 
-	out.flags(flags);
     return out;
 }
 
