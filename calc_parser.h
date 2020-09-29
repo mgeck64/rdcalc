@@ -7,6 +7,7 @@
 #include <set>
 #include <type_traits>
 #include <functional>
+#include <algorithm>
 #include <vector>
 
 template <typename CharT> // CharT: char or wchar_t
@@ -840,7 +841,7 @@ auto calc_parser<CharT>::prod(const list_type& list) -> num_type {
     for (auto val : list)
         if (idx < val.index())
             idx = val.index();
-    auto val = get_as(idx, 0);
+    auto val = get_as(idx, 1);
 
     // accumulate product into val
     for (auto list_val : list) {
