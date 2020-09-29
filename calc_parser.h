@@ -7,6 +7,7 @@
 #include <set>
 #include <type_traits>
 #include <functional>
+#include <vector>
 
 template <typename CharT> // CharT: char or wchar_t
 class calc_parser {
@@ -46,6 +47,8 @@ public:
         // must correspond with num_type's alternative types
     auto int_result_tag() const -> auto {return int_result_tag_;}
     void int_result_tag(int_result_tags int_result_tag);
+
+    using list_type = std::vector<num_type>;
 
     struct parse_error { // exception
         enum error_codes {no_error, lexer_error, syntax_error,
@@ -166,7 +169,7 @@ private:
     // this function is used instead of std:visit to avoid generating 9x9
     // operator() overloads, which can be done because promoted() insures
     // lnum_val and rnum_val will have the same alternative type, thus only 9
-    // overloads are needed.
+    // overloads will be needed.
 
     static void validate_int_only(num_type rval, num_type lval, const token& op_tok);
     
@@ -184,10 +187,16 @@ private:
     auto primary_expression(lookahead& lexer)-> num_type;
     auto identifier(lookahead& lexer)-> num_type;
     auto group(lookahead& lexer)-> num_type;
+    auto list(lookahead& lexer)-> list_type;
 
     using unary_fn = float_type (*)(float_type);
     static std::array<std::pair<const char*, unary_fn>, 20> unary_fn_table;
     // unary_fn_table: simple unordered array; should be small enough that
+    // simple linear search will be adequate
+
+    using list_fn = num_type (*)(const list_type&);
+    static std::array<std::pair<const char*, list_fn>, 6> list_fn_table;
+    // list_fn_table: simple unordered array; should be small enough that
     // simple linear search will be adequate
 
     static bool identifiers_match(string_view inp_symb, const char* tab_symb);
@@ -196,6 +205,12 @@ private:
 
     static auto fac(num_type num_val) -> num_type; // factorial; generalized for fractional numbers
     static auto dfac(num_type num_val) -> num_type; // double factorial
+    static auto sum(const list_type& list) -> num_type;
+    static auto prod(const list_type& list) -> num_type;
+    static auto avg(const list_type& list) -> num_type;
+    static auto variance(const list_type& list) -> num_type;
+    static auto stddev(const list_type& list) -> num_type;
+    static auto median(const list_type& list) -> num_type;
 
     static constexpr auto pi = 3.14159265358979323846;
     static constexpr auto e = 2.71828182845904523536;
@@ -290,7 +305,7 @@ auto calc_parser<CharT>::promoted(num_type lnum_val, num_type rnum_val) -> std::
 
 template <typename CharT>
 template <typename Fn>
-auto calc_parser<CharT>::apply_promoted(Fn fn, num_type lnum_val, num_type rnum_val) -> auto {
+inline auto calc_parser<CharT>::apply_promoted(Fn fn, num_type lnum_val, num_type rnum_val) -> auto {
     std::tie(lnum_val, rnum_val) = promoted(lnum_val, rnum_val);
     assert(lnum_val.index() == rnum_val.index());
     switch (lnum_val.index()) {
@@ -700,7 +715,7 @@ auto calc_parser<CharT>::primary_expression(lookahead& lexer) -> num_type {
 template <typename CharT>
 auto calc_parser<CharT>::identifier(lookahead& lexer) -> num_type {
 // <identifier> ::= <variable> | <function> | <internal value>
-// <function> ::= <unary fn name> <group>
+// <function> ::= <unary fn name> <group> | <list fn name> <list>
     lexer.get_expected_tok(token::identifier);
 
     // <variable>
@@ -711,6 +726,11 @@ auto calc_parser<CharT>::identifier(lookahead& lexer) -> num_type {
     for (auto pos = unary_fn_table.begin(); pos != unary_fn_table.end(); ++pos)
         if (identifiers_match(lexer.cached_tok().tok_str, pos->first))
             return pos->second(get_as<float_type>(group(lexer)));
+
+    // <list fn name>
+    for (auto pos = list_fn_table.begin(); pos != list_fn_table.end(); ++pos)
+        if (identifiers_match(lexer.cached_tok().tok_str, pos->first))
+            return pos->second(list(lexer));
 
     // <internal value>
     if (identifiers_match(lexer.cached_tok().tok_str, "pi"))
@@ -730,6 +750,21 @@ auto calc_parser<CharT>::group(lookahead& lexer) -> num_type {
     auto val = expression(lexer);
     lexer.get_expected_tok(token::rparen);
     return val;
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::list(lookahead& lexer) -> list_type {
+// <list> ::= '(' <expression> [ ',' <expression> ]... ')'
+    lexer.get_expected_tok(token::lparen);
+    list_type list;
+    for (;;) {
+        list.emplace_back(expression(lexer));
+        if (lexer.peek_tok().id != token::comma)
+            break;
+        lexer.get_tok();
+    }
+    lexer.get_expected_tok(token::rparen);
+    return list;
 }
 
 template <typename CharT>
@@ -757,6 +792,16 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::unary_fn>, 20> ca
 }};
 
 template <typename CharT>
+std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 6> calc_parser<CharT>::list_fn_table = {{
+    {"sum", sum},
+    {"prod", prod},
+    {"avg", avg},
+    {"variance", variance},
+    {"stddev", stddev},
+    {"median", median}
+}};
+
+template <typename CharT>
 auto calc_parser<CharT>::fac(num_type num_val) -> num_type {
     return tgamma(get_as<float_type>(num_val) + 1);
 }
@@ -768,6 +813,78 @@ auto calc_parser<CharT>::dfac(num_type num_val) -> num_type { // double factoria
     float_type cpi = cos(pi * n);
     return pow(2.0, (1.0 + 2.0 * n - cpi) / 4.0)
         * pow(pi, (cpi - 1.0) / 4.0) * tgamma(1.0 + n / 2.0);
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::sum(const list_type& list) -> num_type {
+    // setup val as highest ranked alternative type in list
+    size_t idx = 0;
+    for (auto val : list)
+        if (idx < val.index())
+            idx = val.index();
+    auto val = get_as(idx, 0);
+
+    // accumulate sum into val
+    for (auto list_val : list) {
+        val = apply_promoted([&](auto val_, auto list_val_) -> num_type {
+            return val_ + list_val_;
+        }, val, list_val);
+    }
+    return val;
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::prod(const list_type& list) -> num_type {
+    // setup val as highest ranked alternative type in list
+    size_t idx = 0;
+    for (auto val : list)
+        if (idx < val.index())
+            idx = val.index();
+    auto val = get_as(idx, 0);
+
+    // accumulate product into val
+    for (auto list_val : list) {
+        val = apply_promoted([&](auto val_, auto list_val_) -> num_type {
+            return val_ * list_val_;
+        }, val, list_val);
+    }
+
+    return val;
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::avg(const list_type& list) -> num_type {
+    float_type val = 0;
+    for (auto list_val : list)
+        val += get_as<float_type>(list_val);
+    return val / list.size();
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::variance(const list_type& list) -> num_type {
+    assert(list.size() > 0);
+    float_type avg_val = get_as<float_type>(avg(list));
+    float_type delta_sq_sum = 0;
+    for (auto pval = list.begin(); pval != list.end(); ++pval) {
+        auto d = get_as<float_type>(*pval) - avg_val;
+        delta_sq_sum += d * d;
+    }
+    return delta_sq_sum / (list.size() - 1);
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::stddev(const list_type& list) -> num_type {
+    return sqrt(get_as<float_type>(variance(list)));
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::median(const list_type& list) -> num_type {
+    list_type list_ = std::move(list);
+    std::sort(list_.begin(), list_.end());
+    if (list.size() % 2)
+        return get_as<float_type>(list_[list_.size() / 2]);
+    return (get_as<float_type>(list[list.size() / 2 - 1]) +
+        get_as<float_type>(list[list.size() / 2])) / 2.0;
 }
 
 #endif // CALC_PARSER_H
