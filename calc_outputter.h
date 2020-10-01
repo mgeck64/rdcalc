@@ -11,7 +11,7 @@ template <typename CharT>
 class calc_outputter {
 public:
 	using parser_type = calc_parser<CharT>;
-	using num_type = typename parser_type::num_type;
+	using val_type = typename parser_type::val_type;
 	using float_type = typename parser_type::float_type;
 	using widest_uint_type = typename parser_type::widest_uint_type;
 	using widest_int_type = typename parser_type::widest_int_type;
@@ -24,23 +24,23 @@ public:
 
 	void radix(radices radix);
 	auto radix() {return radix_;}
-	const calc_outputter& operator()(num_type num_val_) {num_val = num_val_; return *this;}
+	const calc_outputter& operator()(val_type num_val_) {num_val = num_val_; return *this;}
 	friend ostream& operator<<(ostream& out, const calc_outputter& outputter) {return outputter.output_fn(out, outputter.num_val);}
 
 private:
-	num_type num_val = float_type(0);
+	val_type num_val = float_type(0);
 	radices radix_ = radices::decimal;
 
-	static auto output_bin(ostream& out, num_type num_val) -> ostream&;
-	static auto output_oct(ostream& out, num_type num_val) -> ostream&;
-	static auto output_dec(ostream& out, num_type num_val) -> ostream&;
-	static auto output_hex(ostream& out, num_type num_val) -> ostream&;
+	static auto output_bin(ostream& out, val_type num_val) -> ostream&;
+	static auto output_oct(ostream& out, val_type num_val) -> ostream&;
+	static auto output_dec(ostream& out, val_type num_val) -> ostream&;
+	static auto output_hex(ostream& out, val_type num_val) -> ostream&;
 
-	using output_fn_type = auto (*)(ostream& out, num_type num_val) -> ostream&;
+	using output_fn_type = auto (*)(ostream& out, val_type num_val) -> ostream&;
 	output_fn_type output_fn = output_dec; // (note: auto not allowed for non-static members!)
 	static auto output_fn_for(radices radix) -> output_fn_type;
 
-	static auto output(ostream& out, num_type num_val, unsigned radix) -> ostream&;
+	static auto output(ostream& out, val_type num_val, unsigned radix) -> ostream&;
 	static auto output_as_uint(ostream& out, widest_uint_type val, unsigned radix) -> ostream&;
 	static auto output_as_ieee_double(ostream& out, float_type val, unsigned radix) -> ostream&;
 
@@ -75,48 +75,65 @@ auto calc_outputter<CharT>::output_fn_for(radices radix) -> output_fn_type {
 }
 
 template <typename CharT>
-inline auto calc_outputter<CharT>::output_bin(ostream& out, num_type num_val) -> ostream& {
+inline auto calc_outputter<CharT>::output_bin(ostream& out, val_type num_val) -> ostream& {
 	return output(out, num_val, 2);
 }
 
 template <typename CharT>
-inline auto calc_outputter<CharT>::output_oct(ostream& out, num_type num_val) -> ostream& {
+inline auto calc_outputter<CharT>::output_oct(ostream& out, val_type num_val) -> ostream& {
 	return output(out, num_val, 8);
 }
 
 template <typename CharT>
-auto calc_outputter<CharT>::output_dec(ostream& out, num_type num_val) -> ostream& {
+auto calc_outputter<CharT>::output_dec(ostream& out, val_type num_val) -> ostream& {
 	stream_state_restorer restorer(out);
 	out.precision(15);
 	std::visit([&](auto val) {
-		if constexpr (!std::is_integral_v<decltype(val)>)
+		if constexpr (std::is_same_v<decltype(val), float_type>)
 			out << std::defaultfloat << val;
 		else if constexpr (std::is_signed_v<decltype(val)>) {
 			static_assert(sizeof(val) <= sizeof(widest_int_type));
 			out << std::dec << static_cast<widest_int_type>(val); // cast ensures char type will be output as int
-		} else {
+		} else if constexpr (std::is_unsigned_v<decltype(val)>) {
 			static_assert(sizeof(val) <= sizeof(widest_uint_type));
 			out << std::dec << static_cast<widest_uint_type>(val); // ditto
+		} else {
+			static_assert(std::is_same_v<decltype(val), parser_type::list_type>);
+			for (auto itr = val.begin(); itr != val.end(); ++itr) {
+				if (itr != val.begin())
+					out << ',';
+				output_dec(out, *itr);
+			}
 		}
 	}, num_val);
 	return out;
 }
 
 template <typename CharT>
-auto calc_outputter<CharT>::output_hex(ostream& out, num_type num_val) -> ostream& {
+auto calc_outputter<CharT>::output_hex(ostream& out, val_type num_val) -> ostream& {
 	return output(out, num_val, 16);
 }
 
 template <typename CharT>
-auto calc_outputter<CharT>::output(ostream& out, num_type num_val, unsigned radix) -> ostream& {
-	return std::visit([&](auto val) -> ostream& {
-		if constexpr (std::is_integral_v<decltype(val)>) {
-			auto pval = reinterpret_cast<std::make_unsigned_t<decltype(val)>*>(&val);
+auto calc_outputter<CharT>::output(ostream& out, val_type num_val, unsigned radix) -> ostream& {
+	return std::visit([&](const auto& val) -> ostream& {
+		using VT = std::decay_t<decltype(val)>;
+		if constexpr (std::is_integral_v<VT>) {
+			auto pval = reinterpret_cast<const std::make_unsigned_t<VT>*>(&val);
 			static_assert(sizeof(val) == sizeof(*pval));
 			static_assert(sizeof(widest_uint_type) >= sizeof(*pval));
 			return output_as_uint(out, static_cast<widest_uint_type>(*pval), radix);
-		} else
+		} else if constexpr (std::is_same_v<VT, float_type>)
 			return output_as_ieee_double(out, val, radix);
+		else {
+			static_assert(std::is_same_v<VT, parser_type::list_type>);
+			for (auto itr = val.begin(); itr != val.end(); ++itr) {
+				if (itr != val.begin())
+					out << ',';
+				output(out, *itr, radix);
+			}
+			return out;;
+		}
 	}, num_val);
 }
 
