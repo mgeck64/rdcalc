@@ -8,8 +8,8 @@
 
 template <typename CharT>
 inline void calc_parser<CharT>::parse_error::assert_view_is_valid_for(const CharT* input) const {
-    assert(tok.tok_str.data() >= input);
-    assert(tok.tok_str.data() + tok.tok_str.size() <= input + char_helper::strlen(input));
+    assert(!tok.tok_str.size() || (tok.tok_str.data() >= input));
+    assert(!tok.tok_str.size() || (tok.tok_str.data() + tok.tok_str.size() <= input + char_helper::strlen(input)));
 }
 
 template <typename CharT>
