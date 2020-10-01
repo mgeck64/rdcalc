@@ -143,7 +143,7 @@ auto calc_outputter<CharT>::output_as_uint(ostream& out, widest_uint_type val, u
 	decltype(val) mask = 0;
 	size_t shift = 0;
 	if (radix == 2) {
-		digit_break = 8;
+		digit_break = 4;
 		mask = 1;
 		shift = 1;
 	} else if (radix == 8) {
