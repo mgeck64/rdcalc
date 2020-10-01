@@ -43,7 +43,7 @@ struct token {
 
     enum radices : unsigned char {decimal = 0, base2 = 2, base8 = 8, base10 = 10, base16 = 16};
 
-    string_view tok_str = {}; // view of scanned token relative to input string
+    string_view tok_str = {}; // view of scanned token in input string
 
     enum error_codes {no_error, integer_expected, out_of_range, invalid_number, mfac_unsupported};
     static constexpr auto error_txt = std::array{
