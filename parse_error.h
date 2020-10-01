@@ -18,15 +18,19 @@ auto calc_parser<CharT>::parse_error::error_str() const -> string {
     error_str_buf.reserve(64); // initial capacity to mitigate memory reallocations
 
     char_helper::append_to(error_str_buf, "Error: ");
+    if (error == tok_expected) {
+        char_helper::append_to(error_str_buf, token::token_txt.at(expected_tok));
+        char_helper::append_to(error_str_buf, " ");
+    } else if (error != syntax_error) {
+        char_helper::append_to(error_str_buf, "\"");
+        char_helper::append_to(error_str_buf, tok.tok_str);
+        char_helper::append_to(error_str_buf, "\" ");
+    }
     if (error == lexer_error) {
         assert(tok.error != token::no_error);
         char_helper::append_to(error_str_buf, token::error_txt.at(tok.error));
     } else {
         assert(error != token::no_error);
-        if (error == tok_expected) {
-            char_helper::append_to(error_str_buf, token::token_txt.at(expected_tok));
-            char_helper::append_to(error_str_buf, " ");
-        }
         char_helper::append_to(error_str_buf, error_txt.at(error));
     }
     char_helper::append_to(error_str_buf, ".");
