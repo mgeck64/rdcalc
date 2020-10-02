@@ -72,25 +72,29 @@ public:
 
     struct parse_error { // exception
         enum error_codes {
-            no_error, lexer_error, syntax_error, num_val_expected,
+            no_error, lexer_error, syntax_error, number_expected,
             undefined_identifier, tok_expected,
-            num_lval_expected, num_rval_expected,
-            int_lval_expected, int_rval_expected,
-            rval_negative_invalid, division_by_0, unexpected_error,
+            num_operand_expected, num_operands_expected,
+            int_operand_expected, int_operands_expected,
+            negative_shift_invalid, division_by_0, unexpected_error,
             nested_list_invalid};
         static constexpr auto error_txt = std::array{
             // elements correspond with error_codes enums so enum can be used as index
             "no_error", "lexer error", "syntax error", "number expected",
             "is undefined", "was expected",
-            "number expected for left operand", "number expected for right operand",
-            "integer expected for left operand (check mode)", "integer expected for right operand",
-            "negative right operand invalid", "division by 0", "unexpected error",
+            "numeric operand expected", "numeric operands expected",
+            "integer operand expected", "integer operands expected",
+            "negative shift value is invalid", "division by 0", "unexpected error",
             "nested list at left is invalid"};
         error_codes error = no_error;
         token tok; // warning: has string_view that binds to the input string
         token_ids expected_tok = token::none; // valid for error == tok_expected
         void assert_view_is_valid_for(const CharT* input) const;
         auto error_str() const -> string;
+
+        parse_error(error_codes error_, const token& tok_ = {}, token_ids expected_tok_ = token::unspecified) :
+        // expected_tok is only valid for error == tok_expected
+            error{error_}, tok{tok_}, expected_tok{expected_tok_} {}
     };
 
     using error_codes = typename parse_error::error_codes;
@@ -111,7 +115,7 @@ public:
     using var_keys_type = std::multiset<string>;
     struct variable {
         const typename var_keys_type::iterator key_pos; // see var_keys below
-        val_type num_val;
+        val_type val_var;
     };
     using vars_type = std::map<string_view, variable>;
     const vars_type& vars() const {return vars_;}
@@ -168,37 +172,31 @@ private:
     // containers; this eliminates vector despite the appeal of its simplicity
 
     template <typename T>
-    static auto get_as(const val_type& num_val) -> T;
-    // returns num_val with its value casted as T; precondition: T is one of
+    static auto get_as(const val_type& val_var) -> T;
+    // returns val_var with its value casted as T; precondition: T is one of
     // val_type's alternative types
 
-    static auto get_as(const size_t& idx, const val_type& num_val) -> val_type;
-    // returns num_val with it's value casted as the alternative type indicated
+    static auto get_as(const size_t& idx, const val_type& val_var) -> val_type;
+    // returns val_var with it's value casted as the alternative type indicated
     // by idx (index)
 
-    auto casted(const val_type& num_val) const -> val_type;
-    // if num_val is an integer type then this casts it to the type indicated by
-    // int_result_tag_; else (for float_type) this simply returns num_val
-
-    static auto promoted(const val_type& lnum_val, const val_type& rnum_val) -> std::pair<val_type, val_type>;
-    // casts either lnum_val's or rnum_val's alternative to the higher promotion
+    static auto promoted(const val_type& lval_var, const val_type& rval_var) -> std::pair<val_type, val_type>;
+    // casts either lval_var's or rval_var's alternative to the higher promotion
     // level of the two and returns the modified value along with the other as a
     // pair
 
     template <typename Fn>
-    static auto apply_promoted(const Fn& fn, const val_type& lnum_val, const val_type& rnum_val) -> auto;
+    static auto apply_promoted(const Fn& fn, const val_type& lval_var, const val_type& rval_var) -> auto;
     // fn: functor/lambda with operator()(T, T) -> val_type overloaded for each
-    // of val_type's alternetive types (T). applies promoted() to lnum_val and
-    // rnum_val, then applies fn() to lnum_val's and rnum_val's promoted values.
+    // of val_type's alternetive types (T). applies promoted() to lval_var and
+    // rval_var, then applies fn() to lval_var's and rval_var's promoted values.
     // this function is used instead of std:visit to avoid generating
     // exponential number of functions, which can be done because promoted()
-    // insures lnum_val and rnum_val will have the same alternative type
+    // insures lval_var and rval_var will have the same alternative type
 
-    static void validate_is_num_type(const val_type& rval, const val_type& lval, const token& op_tok);
-    static void validate_is_int_type(const val_type& rval, const val_type& lval, const token& op_tok);
-    
-    static auto make_parse_error(const error_codes& error, const token& tok, token_ids expected_tok_id = token::unspecified) -> parse_error;
-    // expected_tok is only valid for error == parse_error::tok_expected
+    auto casted(const val_type& val_var) const -> val_type;
+    // if val_var is an integer type then this casts it to the type indicated by
+    // int_result_tag_; else (for float_type) this simply returns val_var
 
     // parser productions
     auto expression(lookahead& lexer) -> val_type;
@@ -227,12 +225,12 @@ private:
     // input identifier matches identifier in table?
     // internally, identifier in table is const char* regardless of CharT
 
-    static auto sum(const val_type& num_val) -> val_type;
-    static auto prod(const val_type& num_val) -> val_type;
-    static auto avg(const val_type& num_val) -> val_type;
-    static auto variance(const val_type& num_val) -> val_type;
-    static auto stddev(const val_type& num_val) -> val_type;
-    static auto median(const val_type& num_val) -> val_type;
+    static auto sum(const val_type& val_var) -> val_type;
+    static auto prod(const val_type& val_var) -> val_type;
+    static auto avg(const val_type& val_var) -> val_type;
+    static auto variance(const val_type& val_var) -> val_type;
+    static auto stddev(const val_type& val_var) -> val_type;
+    static auto median(const val_type& val_var) -> val_type;
 
     static auto sum(const list_type& list) -> val_type;
     static auto prod(const list_type& list) -> val_type;
@@ -273,146 +271,107 @@ void calc_parser<CharT>::int_result_tag(int_result_tags int_result_tag) {
 // change their format especially for a narrowing conversion.
 //    // do the same for all variables
 //    for (auto& var : vars_)
-//        var.num_val = casted(var.num_val);
+//        var.val_var = casted(var.val_var);
 }
 
 template <typename CharT>
 template <typename T>
-auto calc_parser<CharT>::get_as(const val_type& num_val) -> T {
+auto calc_parser<CharT>::get_as(const val_type& val_var) -> T {
     // precondition: any of val_type's types is convertable to T
-    switch (num_val.index()) {
-    case 0: return static_cast<T>(*std::get_if<0>(&num_val));
-    case 1: return static_cast<T>(*std::get_if<1>(&num_val));
-    case 2: return static_cast<T>(*std::get_if<2>(&num_val));
-    case 3: return static_cast<T>(*std::get_if<3>(&num_val));
-    case 4: return static_cast<T>(*std::get_if<4>(&num_val));
-    case 5: return static_cast<T>(*std::get_if<5>(&num_val));
-    case 6: return static_cast<T>(*std::get_if<6>(&num_val));
-    case 7: return static_cast<T>(*std::get_if<7>(&num_val));
-    case 8: return static_cast<T>(*std::get_if<8>(&num_val));
+    switch (val_var.index()) {
+    case 0: return static_cast<T>(*std::get_if<0>(&val_var));
+    case 1: return static_cast<T>(*std::get_if<1>(&val_var));
+    case 2: return static_cast<T>(*std::get_if<2>(&val_var));
+    case 3: return static_cast<T>(*std::get_if<3>(&val_var));
+    case 4: return static_cast<T>(*std::get_if<4>(&val_var));
+    case 5: return static_cast<T>(*std::get_if<5>(&val_var));
+    case 6: return static_cast<T>(*std::get_if<6>(&val_var));
+    case 7: return static_cast<T>(*std::get_if<7>(&val_var));
+    case 8: return static_cast<T>(*std::get_if<8>(&val_var));
     default:
         // list_type or missed one; list_type case should have been handled in
         // higher-level code
         assert(false);
-        throw make_parse_error(parse_error::unexpected_error, {});
+        throw parse_error(parse_error::unexpected_error);
     }
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::get_as(const size_t& idx, const val_type& num_val) -> val_type {
-    if (idx == num_val.index())
-        return num_val;
-    val_type num_val_;
+auto calc_parser<CharT>::get_as(const size_t& idx, const val_type& val_var) -> val_type {
+    if (idx == val_var.index())
+        return val_var;
+    val_type val_var_;
     switch (idx) {
-    case 0: num_val_ = get_as<std::int8_t>(num_val); break;
-    case 1: num_val_ = get_as<std::uint8_t>(num_val); break;
-    case 2: num_val_ = get_as<std::int16_t>(num_val); break;
-    case 3: num_val_ = get_as<std::uint16_t>(num_val); break;
-    case 4: num_val_ = get_as<std::int32_t>(num_val); break;
-    case 5: num_val_ = get_as<std::uint32_t>(num_val); break;
-    case 6: num_val_ = get_as<std::int64_t>(num_val); break;
-    case 7: num_val_ = get_as<std::uint64_t>(num_val); break;
-    case 8: num_val_ = get_as<float_type>(num_val); break;
-    default:
-        // list_type or missed one; list_type case should have been handled in
-        // higher-level code
+    case 0: val_var_ = get_as<std::int8_t>(val_var); break;
+    case 1: val_var_ = get_as<std::uint8_t>(val_var); break;
+    case 2: val_var_ = get_as<std::int16_t>(val_var); break;
+    case 3: val_var_ = get_as<std::uint16_t>(val_var); break;
+    case 4: val_var_ = get_as<std::int32_t>(val_var); break;
+    case 5: val_var_ = get_as<std::uint32_t>(val_var); break;
+    case 6: val_var_ = get_as<std::int64_t>(val_var); break;
+    case 7: val_var_ = get_as<std::uint64_t>(val_var); break;
+    case 8: val_var_ = get_as<float_type>(val_var); break;
+    case 9: val_var_ = get_as<list_type>(val_var); break;
+    default: // missed one
         assert(false);
-        throw make_parse_error(parse_error::unexpected_error, {});
+        throw parse_error(parse_error::unexpected_error);
     }
-    assert(idx == num_val_.index());
-    return num_val_;
+    assert(idx == val_var_.index());
+    return val_var_;
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::casted(const val_type& num_val) const -> val_type {
+auto calc_parser<CharT>::promoted(const val_type& lval_var, const val_type& rval_var) -> std::pair<val_type, val_type> {
+    if (lval_var.index() < rval_var.index())
+        return {get_as(rval_var.index(), lval_var), rval_var};
+    if (lval_var.index() > rval_var.index())
+        return {lval_var, get_as(lval_var.index(), rval_var)};
+    return {lval_var, rval_var};
+}
+
+template <typename CharT>
+template <typename Fn>
+inline auto calc_parser<CharT>::apply_promoted(const Fn& fn, const val_type& lval_var, const val_type& rval_var) -> auto {
+    auto [lval_var_, rval_var_] = std::move(promoted(lval_var, rval_var));
+    assert(lval_var_.index() == rval_var_.index());
+    switch (lval_var_.index()) {
+    case 0: return fn(*std::get_if<0>(&lval_var_), *std::get_if<0>(&rval_var_));
+    case 1: return fn(*std::get_if<1>(&lval_var_), *std::get_if<1>(&rval_var_));
+    case 2: return fn(*std::get_if<2>(&lval_var_), *std::get_if<2>(&rval_var_));
+    case 3: return fn(*std::get_if<3>(&lval_var_), *std::get_if<3>(&rval_var_));
+    case 4: return fn(*std::get_if<4>(&lval_var_), *std::get_if<4>(&rval_var_));
+    case 5: return fn(*std::get_if<5>(&lval_var_), *std::get_if<5>(&rval_var_));
+    case 6: return fn(*std::get_if<6>(&lval_var_), *std::get_if<6>(&rval_var_));
+    case 7: return fn(*std::get_if<7>(&lval_var_), *std::get_if<7>(&rval_var_));
+    case 8: return fn(*std::get_if<8>(&lval_var_), *std::get_if<8>(&rval_var_));
+    case 9: return fn(*std::get_if<9>(&lval_var_), *std::get_if<9>(&rval_var_));
+    default: // missed one
+        assert(false);
+        throw parse_error(parse_error::unexpected_error);
+    }
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::casted(const val_type& val_var) const -> val_type {
     return std::visit([&](const auto& val) -> val_type {
         using VT = std::decay_t<decltype(val)>;
         if constexpr (std::is_integral_v<VT>)
-            return get_as(int_result_tag_, num_val);
-        else if constexpr (std::is_same_v<VT, float_type> || std::is_same_v<VT, list_type>)
+            return get_as(int_result_tag_, val_var);
+        else if constexpr (std::is_floating_point_v<VT> || std::is_same_v<VT, list_type>)
             return val;
             // TODO: for list_type, not sure if casted should be applied to
             // elements of list; not doing so for now
         else { // missed one
             static_assert(false);
-            throw make_parse_error(parse_error::unexpected_error, {});
+            throw parse_error(parse_error::unexpected_error);
         }
-    }, num_val);
-}
-
-template <typename CharT>
-auto calc_parser<CharT>::promoted(const val_type& lnum_val, const val_type& rnum_val) -> std::pair<val_type, val_type> {
-    if (lnum_val.index() < rnum_val.index())
-        return {get_as(rnum_val.index(), lnum_val), rnum_val};
-    if (lnum_val.index() > rnum_val.index())
-        return {lnum_val, get_as(lnum_val.index(), rnum_val)};
-    return {lnum_val, rnum_val};
-}
-
-template <typename CharT>
-template <typename Fn>
-inline auto calc_parser<CharT>::apply_promoted(const Fn& fn, const val_type& lnum_val, const val_type& rnum_val) -> auto {
-    auto [lnum_val_, rnum_val_] = std::move(promoted(lnum_val, rnum_val));
-    assert(lnum_val_.index() == rnum_val_.index());
-    switch (lnum_val_.index()) {
-    case 0: return fn(*std::get_if<0>(&lnum_val_), *std::get_if<0>(&rnum_val_));
-    case 1: return fn(*std::get_if<1>(&lnum_val_), *std::get_if<1>(&rnum_val_));
-    case 2: return fn(*std::get_if<2>(&lnum_val_), *std::get_if<2>(&rnum_val_));
-    case 3: return fn(*std::get_if<3>(&lnum_val_), *std::get_if<3>(&rnum_val_));
-    case 4: return fn(*std::get_if<4>(&lnum_val_), *std::get_if<4>(&rnum_val_));
-    case 5: return fn(*std::get_if<5>(&lnum_val_), *std::get_if<5>(&rnum_val_));
-    case 6: return fn(*std::get_if<6>(&lnum_val_), *std::get_if<6>(&rnum_val_));
-    case 7: return fn(*std::get_if<7>(&lnum_val_), *std::get_if<7>(&rnum_val_));
-    case 8: return fn(*std::get_if<8>(&lnum_val_), *std::get_if<8>(&rnum_val_));
-    default:
-        // list_type or missed one; list_type case should have been handled in
-        // higher-level code
-        assert(false);
-        throw make_parse_error(parse_error::unexpected_error, {});
-    }
-}
-
-template <typename CharT>
-inline auto calc_parser<CharT>::make_parse_error(const error_codes& error, const token& tok, token_ids expected_tok_id) -> parse_error {
-    return parse_error{error, tok, expected_tok_id};
+    }, val_var);
 }
 
 template <typename CharT>
 inline bool calc_parser<CharT>::identifiers_match(string_view inp_symb, const char* tab_symb) {
     return char_helper::eq(inp_symb, tab_symb);
     // may want to support case insensitive match in the future--maybe
-}
-
-template <typename CharT>
-inline void calc_parser<CharT>::validate_is_num_type(const val_type& lnum_val, const val_type& rnum_val, const token& op_tok) {
-    std::visit([&](const auto& lval) {
-        using VT = std::decay_t<decltype(lval)>;
-        if constexpr (!std::is_same_v<VT, float_type> && !std::is_integral_v<VT>)
-            throw make_parse_error(parse_error::num_lval_expected, op_tok);
-    }, lnum_val);
-    std::visit([&](const auto& rval) {
-        using VT = std::decay_t<decltype(rval)>;
-        if constexpr (!std::is_same_v<VT, float_type> && !std::is_integral_v<VT>)
-            throw make_parse_error(parse_error::num_rval_expected, op_tok);
-    }, rnum_val);
-    // lnum_val and rnum_val are visied independently to avoid generating
-    // exponential number of lambdas
-}
-
-template <typename CharT>
-inline void calc_parser<CharT>::validate_is_int_type(const val_type& lnum_val, const val_type& rnum_val, const token& op_tok) {
-    std::visit([&](const auto& lval) {
-        using VT = std::decay_t<decltype(lval)>;
-        if constexpr (!std::is_integral_v<VT>)
-            throw make_parse_error(parse_error::int_lval_expected, op_tok);
-    }, lnum_val);
-    std::visit([&](const auto& rval) {
-        using VT = std::decay_t<decltype(rval)>;
-        if constexpr (!std::is_integral_v<VT>)
-            throw make_parse_error(parse_error::int_rval_expected, op_tok);
-    }, rnum_val);
-    // lnum_val and rnum_val are visied independently to avoid generating
-    // exponential number of lambdas
 }
 
 template <typename CharT>
@@ -424,7 +383,7 @@ auto calc_parser<CharT>::eval(const CharT* input) -> bool {
     }
     last_val_ = std::move(expression(lexer));
     if (lexer.get_tok().id != token::end)
-        throw make_parse_error(parse_error::syntax_error, lexer.cached_tok());
+        throw parse_error(parse_error::syntax_error, lexer.cached_tok());
     return true;
 }
 
@@ -442,7 +401,7 @@ auto calc_parser<CharT>::expression(lookahead& lexer) -> val_type {
             if (pos == vars_.end())
                 val = std::numeric_limits<float_type>::quiet_NaN();
             else {
-                val = std::move(pos->second.num_val);
+                val = std::move(pos->second.val_var);
                 var_keys.erase(pos->second.key_pos); // erase corresponding entry in var_keys
                 vars_.erase(pos);
             }
@@ -453,7 +412,7 @@ auto calc_parser<CharT>::expression(lookahead& lexer) -> val_type {
             vars_.try_emplace(*var_key_pos, variable{var_key_pos, val});
         } else
         // variable found; assign to it <expression>
-            val = pos->second.num_val = std::move(expression(lexer));
+            val = pos->second.val_var = std::move(expression(lexer));
         notify_vars_changed();
     } else
         val = std::move(arithmetic_expr(lexer));
@@ -463,79 +422,70 @@ auto calc_parser<CharT>::expression(lookahead& lexer) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::arithmetic_expr(lookahead& lexer) -> val_type {
 // <arithmetic expr> ::= <bor term> [ "|" <bor term> ]...
-    auto lval = std::move(bor_term(lexer));
+    auto lval_num = std::move(bor_term(lexer));
     for (;;) {
         if (lexer.peek_tok().id == token::bor) {
             auto op_tok = lexer.get_tok();
-            auto rval = std::move(bor_term(lexer));
-            validate_is_int_type(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
-            lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
+            auto rval_num = std::move(bor_term(lexer));
+            lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
                 static_assert(std::is_same_v<LVT, RVT>);
                 if constexpr (std::is_integral_v<LVT>)
                     return static_cast<LVT>(lval | rval);
-                else { // should never be invoked
-                    assert(false);
-                    throw make_parse_error(parse_error::unexpected_error, op_tok);
-                }
-            }, lval, rval);
+                else
+                    throw parse_error(parse_error::int_operands_expected, op_tok);
+            }, lval_num, rval_num);
         } else
             break;
     }
-    return lval;
+    return lval_num;
 }
 
 template <typename CharT>
 auto calc_parser<CharT>::bor_term(lookahead& lexer) -> val_type {
 // <bor term> ::= <bxor term> [ "^" <bxor term> ]...
-    auto lval = std::move(bxor_term(lexer));
+    auto lval_num = std::move(bxor_term(lexer));
     for (;;) {
         if (lexer.peek_tok().id == token::bxor) {
             auto op_tok = lexer.get_tok();
-            auto rval = std::move(bxor_term(lexer));
-            validate_is_int_type(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
-            lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
+            auto rval_num = std::move(bxor_term(lexer));
+            lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
                 static_assert(std::is_same_v<LVT, RVT>);
                 if constexpr (std::is_integral_v<LVT>)
                     return static_cast<LVT>(lval ^ rval);
-                else { // should never be invoked
-                    assert(false);
-                    throw make_parse_error(parse_error::unexpected_error, op_tok);
-                }
-            }, lval, rval);
+                else
+                    throw parse_error(parse_error::int_operands_expected, op_tok);
+            }, lval_num, rval_num);
         } else
             break;
     }
-    return lval;
+    return lval_num;
 }
 
 template <typename CharT>
 auto calc_parser<CharT>::bxor_term(lookahead& lexer) -> val_type {
 // <bxor term> ::= <band term> [ "&" <band term> ]...
-    auto lval = std::move(band_term(lexer));
+    auto lval_num = std::move(band_term(lexer));
     for (;;) {
         if (lexer.peek_tok().id == token::band) {
             auto op_tok = lexer.get_tok();
-            auto rval = std::move(band_term(lexer));
-            validate_is_int_type(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
-            lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
+            auto rval_num = std::move(band_term(lexer));
+            lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
                 static_assert(std::is_same_v<LVT, RVT>);
                 if constexpr (std::is_integral_v<LVT>)
                     return static_cast<LVT>(lval & rval);
-                else { // should never be invoked
-                    assert(false);
-                    throw make_parse_error(parse_error::unexpected_error, op_tok);
-                }
-            }, lval, rval);
+                else
+                    throw parse_error(parse_error::int_operands_expected, op_tok);
+            }, lval_num, rval_num);
         } else
             break;
     }
-    return lval;
+    return lval_num;
 }
 
 template <typename CharT>
@@ -543,12 +493,11 @@ auto calc_parser<CharT>::band_term(lookahead& lexer) -> val_type {
 // <band term> ::= <shift term> [ ( "<<" | "<<<" | ">>" | ">>>" ) <shift term> ]...
     token op_tok;
 
-    // all this complexity is to try to insure consistent well-defined behavior.
-    // for a << b or a >> b, the only behavior that's well-defined in standard
-    // C++ is where a and b are positive/unsigned and b < number of bits in a.
-
     auto shift_arg_in_range = [&](const auto& lval, const auto& shift_arg) -> bool {
-        // assume shift_arg is valid only if positive and less than # bits in lval's type
+        // assume shift_arg is valid only if positive and less than # bits in
+        // lval's type. if shift_arg is negative then it's unusable; exception
+        // will be thrown in that case. if shift_arg is >= # bits in lval's type
+        // then we will simulate shifting beyond that limit.
         // precondition: lval and shift_arg are integral (integer) types
         using LVT = std::decay_t<decltype(lval)>;
         using ShiftT = std::decay_t<decltype(shift_arg)>;
@@ -556,195 +505,164 @@ auto calc_parser<CharT>::band_term(lookahead& lexer) -> val_type {
         static_assert(std::is_integral_v<ShiftT>);
         if constexpr (std::is_signed_v<ShiftT>)
             if (shift_arg < 0)
-                throw make_parse_error(parse_error::rval_negative_invalid, op_tok);
-        return shift_arg < (sizeof(LVT) * CHAR_BIT);
+                throw parse_error(parse_error::negative_shift_invalid, op_tok);
+        return shift_arg < (sizeof(LVT) * std::numeric_limits<unsigned char>::digits);
     };
 
-    auto lshiftl_op = [](const auto& lval, const auto& rval) -> auto { // logical shift left
-        using LVT = std::decay_t<decltype(lval)>;
-        return static_cast<LVT>(std::make_unsigned_t<LVT>(lval) << rval);
-    };
-    auto lshiftr_op = [](const auto& lval, const auto& rval) -> auto { // logical shift right
-        using LVT = std::decay_t<decltype(lval)>;
-        return static_cast<LVT>(std::make_unsigned_t<LVT>(lval) >> rval);
-    };
-    auto bnot_op = [](auto val) -> auto { // bitwise negation cast back as original type (to avoid promotion of, e.g., 8 bit type to int)
-        return static_cast<std::decay_t<decltype(val)>>(~val);
-    };
-
-    auto logical_shift = [&](const auto& lval, const auto& rval, const auto& shift_op) -> val_type { // arithmetic and logical shift are the same in most cases
-        using LVT = std::decay_t<decltype(lval)>;
-        using RVT = std::decay_t<decltype(rval)>;
-        if constexpr (std::is_integral_v<LVT> && std::is_integral_v<RVT>) {
-            if (!shift_arg_in_range(lval, rval))
-                return static_cast<LVT>(0);
-            return shift_op(lval, rval);
-        } else {
-            assert(false); // should never be invoked
-            throw make_parse_error(parse_error::unexpected_error, op_tok);
-        }
-    };
-
-    auto lshiftl = [&](const auto& lval, const auto& rval) -> val_type { // logical shift left
-        return logical_shift(lval, rval, lshiftl_op);
-    };
-
-    auto lshiftr = [&](const auto& lval, const auto& rval) -> val_type { // logical shift right
-        return logical_shift(lval, rval, lshiftr_op);
-    };
-
-    auto ashiftl = [&](const auto& lval, const auto& rval) -> val_type { // arithmetic shift left; equivalent to logical shift left
-        return logical_shift(lval, rval, lshiftl_op);
-    };
-
-    auto ashiftr = [&](const auto& lval, const auto& rval) -> val_type { // arithmetic shift right
-        using LVT = std::decay_t<decltype(lval)>;
-        using RVT = std::decay_t<decltype(rval)>;
-        if constexpr (std::is_integral_v<LVT> && std::is_integral_v<RVT>) {
-            if constexpr (std::is_signed_v<LVT>)
-                if (lval < 0) {
+    auto lval_num = std::move(shift_term(lexer));
+    for (;;) {
+        if (lexer.peek_tok().id == token::ashiftl) {
+            op_tok = lexer.get_tok();
+            auto rval_num = shift_term(lexer);
+            lval_num = std::visit([&](const auto& lval, const auto& rval) -> val_type {
+                using LVT = std::decay_t<decltype(lval)>;
+                using RVT = std::decay_t<decltype(rval)>;
+                if constexpr (std::is_integral_v<LVT> && std::is_integral_v<RVT>) {
+                    // arithmetic and logical left shift are equivalent
+                    if (!shift_arg_in_range(lval, rval))
+                        return static_cast<LVT>(0);
+                    return static_cast<LVT>(lval << rval);
+                } else
+                    throw parse_error(parse_error::int_operands_expected, op_tok);
+            }, lval_num, rval_num);
+        } else if (lexer.peeked_tok().id == token::ashiftr) {
+            op_tok = lexer.get_tok();
+            auto rval_num = shift_term(lexer);
+            lval_num = std::visit([&](const auto& lval, const auto& rval) -> val_type {
+                using LVT = std::decay_t<decltype(lval)>;
+                using RVT = std::decay_t<decltype(rval)>;
+                if constexpr (std::is_integral_v<LVT> && std::is_integral_v<RVT>) {
+                    // simulate arithmetic right shift incase real shift is logical one
                     if (!shift_arg_in_range(lval, rval))
                         return static_cast<LVT>(~static_cast<LVT>(0));
-                    auto fill_bits = bnot_op(lshiftr_op(bnot_op(static_cast<LVT>(0)), rval));
-                    return static_cast<LVT>(lshiftr_op(lval, rval) | fill_bits);
-                }
-            assert(lval >= 0);
-            if (!shift_arg_in_range(lval, rval))
-                return static_cast<LVT>(0);
-            return lshiftr_op(lval, rval);
-        } else {
-            assert(false); // should never be invoked
-            throw make_parse_error(parse_error::unexpected_error, op_tok);
-        }
-    };
-
-    auto lval = std::move(shift_term(lexer));
-    auto do_shift = [&](const auto& shift_fn) {
-        auto op_tok = lexer.get_tok();
-        auto rval = shift_term(lexer);
-        validate_is_int_type(lval, rval, op_tok);
-        lval = std::visit(shift_fn, lval, rval);
-    };
-    for (;;) {
-        if (lexer.peek_tok().id == token::ashiftl)
-            do_shift(ashiftl);
-        else if (lexer.peeked_tok().id == token::ashiftr)
-            do_shift(ashiftr);
-        else if (lexer.peeked_tok().id == token::lshiftl)
-            do_shift(lshiftl);
-        else if (lexer.peeked_tok().id == token::lshiftr)
-            do_shift(lshiftr);
-        else
+                    auto fill_bits = ~(~static_cast<LVT>(0) >> rval);
+                    return static_cast<LVT>((lval >> rval) | fill_bits);
+                } else
+                    throw parse_error(parse_error::int_operands_expected, op_tok);
+            }, lval_num, rval_num);
+        } else if (lexer.peeked_tok().id == token::lshiftl) {
+            op_tok = lexer.get_tok();
+            auto rval_num = shift_term(lexer);
+            lval_num = std::visit([&](const auto& lval, const auto& rval) -> val_type {
+                using LVT = std::decay_t<decltype(lval)>;
+                using RVT = std::decay_t<decltype(rval)>;
+                if constexpr (std::is_integral_v<LVT> && std::is_integral_v<RVT>) {
+                    // arithmetic and logical left shift are equivalent
+                    if (!shift_arg_in_range(lval, rval))
+                        return static_cast<LVT>(0);
+                    return static_cast<LVT>(lval << rval);
+                } else
+                    throw parse_error(parse_error::int_operands_expected, op_tok);
+            }, lval_num, rval_num);
+        } else if (lexer.peeked_tok().id == token::lshiftr) {
+            op_tok = lexer.get_tok();
+            auto rval_num = shift_term(lexer);
+            lval_num = std::visit([&](const auto& lval, const auto& rval) -> val_type {
+                using LVT = std::decay_t<decltype(lval)>;
+                using RVT = std::decay_t<decltype(rval)>;
+                if constexpr (std::is_integral_v<LVT> && std::is_integral_v<RVT>) {
+                    // arithmetic and logical right shift of unsigned type are equivalent
+                    if (!shift_arg_in_range(lval, rval))
+                        return static_cast<LVT>(0);
+                    return static_cast<LVT>(std::make_unsigned_t<LVT>(lval) >> rval);
+                } else
+                    throw parse_error(parse_error::int_operands_expected, op_tok);
+            }, lval_num, rval_num);
+        } else
             break;
     }
-    return lval;
+    return lval_num;
 }
 
 template <typename CharT>
 auto calc_parser<CharT>::shift_term(lookahead& lexer) -> val_type {
 // <shift term> ::= <term> [ ( "+" | "-" ) <term> ]...
-    auto lval = std::move(term(lexer));
+    auto lval_num = std::move(term(lexer));
     for (;;) {
         if (lexer.peek_tok().id == token::add) {
             auto op_tok = lexer.get_tok();
-            auto rval = std::move(term(lexer));
-            validate_is_num_type(lval, rval, op_tok);
-            lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
+            auto rval_num = std::move(term(lexer));
+            lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
                 static_assert(std::is_same_v<LVT, RVT>);
-                if constexpr (std::is_same_v<LVT, float_type> || std::is_integral_v<LVT>)
+                if constexpr (std::is_floating_point_v<LVT> || std::is_integral_v<LVT>)
                     return static_cast<LVT>(lval + rval);
-                else { // should never be invoked
-                    assert(false);
-                    throw make_parse_error(parse_error::unexpected_error, op_tok);
-                }
-            }, lval, rval);
+                else
+                    throw parse_error(parse_error::num_operands_expected, op_tok);
+            }, lval_num, rval_num);
         } else if (lexer.peeked_tok().id == token::sub) {
             auto op_tok = lexer.get_tok();
-            auto rval = std::move(term(lexer));
-            validate_is_num_type(lval, rval, op_tok);
-            lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
+            auto rval_num = std::move(term(lexer));
+            lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
                 static_assert(std::is_same_v<LVT, RVT>);
-                if constexpr (std::is_same_v<LVT, float_type> || std::is_integral_v<LVT>)
+                if constexpr (std::is_floating_point_v<LVT> || std::is_integral_v<LVT>)
                     return static_cast<LVT>(lval - rval);
-                else { // should never be invoked
-                    assert(false);
-                    throw make_parse_error(parse_error::unexpected_error, op_tok);
-                }
-            }, lval, rval);
+                else
+                    throw parse_error(parse_error::num_operands_expected, op_tok);
+            }, lval_num, rval_num);
         } else {
             break;
         }
     }
-    return lval;
+    return lval_num;
 }
 
 template <typename CharT>
 auto calc_parser<CharT>::term(lookahead& lexer) -> val_type {
 // <term> ::= <factor> [ ( "*" | "/" | "%" ) <factor> ]...
-    auto lval = std::move(factor(lexer));
+    auto lval_num = std::move(factor(lexer));
     for (;;) {
         if (lexer.peek_tok().id == token::mul) {
             auto op_tok = lexer.get_tok();
-            auto rval = std::move(factor(lexer));
-            validate_is_num_type(lval, rval, op_tok);
-            lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
+            auto rval_num = std::move(factor(lexer));
+            lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
                 static_assert(std::is_same_v<LVT, RVT>);
-                if constexpr (std::is_same_v<LVT, float_type> || std::is_integral_v<LVT>)
+                if constexpr (std::is_floating_point_v<LVT> || std::is_integral_v<LVT>)
                     return static_cast<LVT>(lval * rval);
-                else { // should never be invoked
-                    assert(false);
-                    throw make_parse_error(parse_error::unexpected_error, op_tok);
-                }
-            }, lval, rval);
+                else
+                    throw parse_error(parse_error::num_operands_expected, op_tok);
+            }, lval_num, rval_num);
         } else if (lexer.peeked_tok().id == token::div) {
             auto op_tok = lexer.get_tok();
-            auto rval = std::move(factor(lexer));
-            validate_is_num_type(lval, rval, op_tok);
-            lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
+            auto rval_num = std::move(factor(lexer));
+            lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
                 static_assert(std::is_same_v<LVT, RVT>);
-                if constexpr (std::is_integral_v<LVT>) {
-                    if (rval == 0)
-                        throw make_parse_error(parse_error::division_by_0, op_tok);
-                    return static_cast<LVT>(lval / rval);
-                }
-                else if constexpr (std::is_same_v<LVT, float_type>)
+                if constexpr (std::is_floating_point_v<LVT>)
                     // for floating point, let division by 0 resolve to inf
                     return static_cast<LVT>(lval / rval);
-                else { // should never be invoked
-                    assert(false);
-                    throw make_parse_error(parse_error::unexpected_error, op_tok);
+                else if constexpr (std::is_integral_v<LVT>) {
+                    if (rval == 0)
+                        throw parse_error(parse_error::division_by_0, op_tok);
+                    return static_cast<LVT>(lval / rval);
                 }
-            }, lval, rval);
+                else
+                    throw parse_error(parse_error::num_operands_expected, op_tok);
+            }, lval_num, rval_num);
         } else if (lexer.peek_tok().id == token::mod) {
             auto op_tok = lexer.get_tok();
-            auto rval = std::move(factor(lexer));
-            validate_is_int_type(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
-            lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
+            auto rval_num = std::move(factor(lexer));
+            lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
                 static_assert(std::is_same_v<LVT, RVT>);
                 if constexpr (std::is_integral_v<LVT>) {
                     if (rval == 0)
-                        throw make_parse_error(parse_error::division_by_0, op_tok);
+                        throw parse_error(parse_error::division_by_0, op_tok);
                     return static_cast<LVT>(lval % rval);
-                } else { // should never be invoked
-                    assert(false);
-                    throw make_parse_error(parse_error::unexpected_error, op_tok);
-                }
-            }, lval, rval);
-        } else {
+                } else
+                    throw parse_error(parse_error::int_operands_expected, op_tok);
+            }, lval_num, rval_num);
+        } else
             break;
-        }
     }
-    return lval;
+    return lval_num;
 }
 
 template <typename CharT>
@@ -758,50 +676,58 @@ auto calc_parser<CharT>::factor(lookahead& lexer) -> val_type {
 // that would result in ~-1 being a syntax error, so it's here.
     if (lexer.peek_tok().id == token::add) { // unary +, basically do nothing
         auto op_tok = lexer.get_tok();
-        auto val = std::move(factor(lexer));
+        auto val_num = std::move(factor(lexer));
         return std::visit([&](const auto& val) -> val_type {
             using VT = std::decay_t<decltype(val)>;
-            if constexpr (std::is_same_v<VT, float_type> || std::is_integral_v<VT>)
+            if constexpr (std::is_floating_point_v<VT> || std::is_integral_v<VT>)
                 return val;
             else
-                throw make_parse_error(parse_error::num_rval_expected, op_tok); 
-        }, val);
+                throw parse_error(parse_error::num_operand_expected, op_tok); 
+        }, val_num);
     }
     if (lexer.peeked_tok().id == token::sub) { // negation
         auto op_tok = lexer.get_tok();
-        auto val = std::move(factor(lexer));
+        auto val_num = std::move(factor(lexer));
         return std::visit([&](const auto& val) -> val_type {
             using VT = std::decay_t<decltype(val)>;
-            #pragma warning(disable : 4146) // suppress error negation of unsigned type
-            if constexpr (std::is_same_v<VT, float_type> || std::is_integral_v<VT>)
+            if constexpr (std::is_floating_point_v<VT> || std::is_signed_v<VT>)
                 return static_cast<VT>(-val);
+            else if constexpr (std::is_unsigned_v<VT>) // (note: MSVC++ doesn't like negating unsigned type)
+                return val;
             else
-                throw make_parse_error(parse_error::num_rval_expected, op_tok); 
-        }, val);
+                throw parse_error(parse_error::num_operand_expected, op_tok); 
+        }, val_num);
     }
     if (lexer.peeked_tok().id == token::bnot) {
         auto op_tok = lexer.get_tok();
-        auto val = std::move(factor(lexer));
+        auto val_num = std::move(factor(lexer));
         return std::visit([&](auto val) -> val_type {
             using VT = std::decay_t<decltype(val)>;
             if constexpr (std::is_integral_v<VT>)
                 return static_cast<VT>(~val);
             else
-                throw make_parse_error(parse_error::int_rval_expected, op_tok); 
-        }, val);
+                throw parse_error(parse_error::int_operand_expected, op_tok); 
+        }, val_num);
     }
 
-    auto val = std::move(primary_expression(lexer));
+    auto lval_num = std::move(primary_expression(lexer));
     for (;;) {
         if (lexer.peek_tok().id == token::pow) {
             auto op_tok = lexer.get_tok();
-            auto factor_val = std::move(factor(lexer));
-            validate_is_num_type(val, factor_val, op_tok);
-            val = pow(get_as<float_type>(val), get_as<float_type>(factor_val));
+            auto rval_num = std::move(factor(lexer));
+            lval_num = std::visit([&](const auto& lval, const auto& rval) -> val_type {
+                using LVT = std::decay_t<decltype(lval)>;
+                using RVT = std::decay_t<decltype(rval)>;
+                if constexpr ((std::is_floating_point_v<LVT> || std::is_integral_v<LVT>)
+                        && (std::is_floating_point_v<RVT> || std::is_integral_v<RVT>))
+                    return pow(lval, rval);
+                else
+                    throw parse_error(parse_error::num_operands_expected, op_tok); 
+            }, lval_num, rval_num);
         } else
             break;
     }
-    return val;
+    return lval_num;
 }
 
 template <typename CharT>
@@ -821,7 +747,7 @@ auto calc_parser<CharT>::primary_expression(lookahead& lexer) -> val_type {
     else if (lexer.peeked_tok().id == token::lparen)
         lval = std::move(group_or_list(lexer));
     else
-        throw make_parse_error(parse_error::syntax_error, lexer.peeked_tok());
+        throw parse_error(parse_error::syntax_error, lexer.peeked_tok());
 
     for (;;) {
         if (lexer.peek_tok().id == token::fac) {
@@ -831,7 +757,7 @@ auto calc_parser<CharT>::primary_expression(lookahead& lexer) -> val_type {
                 if constexpr (std::is_same_v<VT, float_type> || std::is_integral_v<VT>)
                     return tgamma(val + 1);
                 else
-                    throw make_parse_error(parse_error::num_lval_expected, op_tok);
+                    throw parse_error(parse_error::num_operand_expected, op_tok);
             }, lval);
         } else if (lexer.peek_tok().id == token::dfac) {
             auto op_tok = lexer.get_tok();
@@ -842,7 +768,7 @@ auto calc_parser<CharT>::primary_expression(lookahead& lexer) -> val_type {
                     return pow(2.0, (1.0 + 2.0 * val - cpi) / 4.0)
                         * pow(pi, (cpi - 1.0) / 4.0) * tgamma(1.0 + val / 2.0);
                 } else
-                    throw make_parse_error(parse_error::num_lval_expected, op_tok);
+                    throw parse_error(parse_error::num_operand_expected, op_tok);
             }, lval);
         } else
             break;
@@ -860,7 +786,7 @@ auto calc_parser<CharT>::identifier(lookahead& lexer) -> val_type {
 
     // <variable>
     if (auto pos = vars_.find(lexer.cached_tok().tok_str); pos != vars_.end())
-        return pos->second.num_val;
+        return pos->second.val_var;
 
     // <unary fn name>
     for (auto pos = unary_fn_table.begin(); pos != unary_fn_table.end(); ++pos)
@@ -880,7 +806,7 @@ auto calc_parser<CharT>::identifier(lookahead& lexer) -> val_type {
     if (identifiers_match(lexer.cached_tok().tok_str, "last"))
         return last_val_;
 
-    throw make_parse_error(parse_error::undefined_identifier, lexer.cached_tok());
+    throw parse_error(parse_error::undefined_identifier, lexer.cached_tok());
 };
 
 template <typename CharT>
@@ -895,7 +821,7 @@ auto calc_parser<CharT>::group_or_list(lookahead& lexer, size_t expected_count) 
 
     auto convert = [&](const auto& val) -> num_type {
         if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            throw make_parse_error(parse_error::nested_list_invalid, tok);
+            throw parse_error(parse_error::nested_list_invalid, tok);
         else
             return val;
     };
@@ -907,12 +833,12 @@ auto calc_parser<CharT>::group_or_list(lookahead& lexer, size_t expected_count) 
         tok = lexer.get_tok();
         list.emplace_back(std::visit(convert, val));
         if (expected_count && list.size() == expected_count)
-            throw make_parse_error(parse_error::tok_expected, tok, token::rparen);
+            throw parse_error(parse_error::tok_expected, tok, token::rparen);
     }
 
     tok = lexer.get_expected_tok(token::rparen);
     if (expected_count && (list.size() + 1 != expected_count))
-        throw make_parse_error(parse_error::num_val_expected, tok);
+        throw parse_error(parse_error::number_expected, tok);
 
     if (!list.size())
         return val;
@@ -955,99 +881,78 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 6> calc
 }};
 
 template <typename CharT>
-auto calc_parser<CharT>::sum(const val_type& num_val) -> val_type {
+auto calc_parser<CharT>::sum(const val_type& val_var) -> val_type {
     return std::visit([](const auto& val) -> val_type {
         if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
             return sum(val);
         else
             return val;
-    }, num_val);
+    }, val_var);
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::prod(const val_type& num_val) -> val_type {
+auto calc_parser<CharT>::prod(const val_type& val_var) -> val_type {
     return std::visit([](const auto& val) -> val_type {
         if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
             return prod(val);
         else
             return val;
-    }, num_val);
+    }, val_var);
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::avg(const val_type& num_val) -> val_type {
+auto calc_parser<CharT>::avg(const val_type& val_var) -> val_type {
     return std::visit([](const auto& val) -> val_type {
         if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
             return avg(val);
         else
             return val;
-    }, num_val);
+    }, val_var);
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::variance(const val_type& num_val) -> val_type {
+auto calc_parser<CharT>::variance(const val_type& val_var) -> val_type {
     return std::visit([](const auto& val) -> val_type {
         if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
             return variance(val);
         else
             return std::numeric_limits<float_type>::infinity();
-    }, num_val);
+    }, val_var);
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::stddev(const val_type& num_val) -> val_type {
+auto calc_parser<CharT>::stddev(const val_type& val_var) -> val_type {
     return std::visit([](const auto& val) -> val_type {
         if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
             return stddev(val);
         else
             return std::numeric_limits<float_type>::infinity();
-    }, num_val);
+    }, val_var);
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::median(const val_type& num_val) -> val_type {
+auto calc_parser<CharT>::median(const val_type& val_var) -> val_type {
     return std::visit([](const auto& val) -> val_type {
         if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
             return median(val);
         else
             return val;
-    }, num_val);
+    }, val_var);
 }
 
 template <typename CharT>
 auto calc_parser<CharT>::sum(const list_type& list) -> val_type {
-    // setup val to be highest ranked alternative type in list
-    size_t idx = 0;
-    for (auto val : list)
-        if (idx < val.index())
-            idx = val.index();
-    auto val = get_as(idx, 0);
-
-    // accumulate sum into val
-    for (auto list_val : list) {
-        val = apply_promoted([&](auto val_, auto list_val_) -> val_type {
-            return val_ + list_val_;
-        }, val, list_val);
-    }
+    float_type val = 0;
+    for (auto list_val : list)
+        val += get_as<float_type>(list_val);
     return val;
 }
 
 template <typename CharT>
 auto calc_parser<CharT>::prod(const list_type& list) -> val_type {
-    // setup val as highest ranked alternative type in list
-    size_t idx = 0;
-    for (auto val : list)
-        if (idx < val.index())
-            idx = val.index();
-    auto val = get_as(idx, 1);
-
-    // accumulate product into val
-    for (auto list_val : list) {
-        val = apply_promoted([&](auto val_, auto list_val_) -> val_type {
-            return val_ * list_val_;
-        }, val, list_val);
-    }
-
+    float_type val = 1;
+    for (auto list_val : list)
+        val *= get_as<float_type>(list_val);
     return val;
 }
 
@@ -1078,8 +983,12 @@ auto calc_parser<CharT>::stddev(const list_type& list) -> val_type {
 
 template <typename CharT>
 auto calc_parser<CharT>::median(const list_type& list) -> val_type {
-    list_type list_ = list;
+    list_type list_;
+    list_.reserve(list.size());
+    for (auto& val: list)
+        list_.emplace_back(get_as<float_type>(val));
     std::sort(list_.begin(), list_.end());
+
     if (list.size() % 2)
         return get_as<float_type>(list_[list_.size() / 2]);
     return (get_as<float_type>(list[list.size() / 2 - 1]) +
