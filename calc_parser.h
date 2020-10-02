@@ -194,8 +194,8 @@ private:
     // exponential number of functions, which can be done because promoted()
     // insures lnum_val and rnum_val will have the same alternative type
 
-    static void validate_num_type(const val_type& rval, const val_type& lval, const token& op_tok);
-    static void validate_int_only(const val_type& rval, const val_type& lval, const token& op_tok);
+    static void validate_is_num_type(const val_type& rval, const val_type& lval, const token& op_tok);
+    static void validate_is_int_type(const val_type& rval, const val_type& lval, const token& op_tok);
     
     static auto make_parse_error(const error_codes& error, const token& tok, token_ids expected_tok_id = token::unspecified) -> parse_error;
     // expected_tok is only valid for error == parse_error::tok_expected
@@ -384,7 +384,7 @@ inline bool calc_parser<CharT>::identifiers_match(string_view inp_symb, const ch
 }
 
 template <typename CharT>
-inline void calc_parser<CharT>::validate_num_type(const val_type& lnum_val, const val_type& rnum_val, const token& op_tok) {
+inline void calc_parser<CharT>::validate_is_num_type(const val_type& lnum_val, const val_type& rnum_val, const token& op_tok) {
     std::visit([&](const auto& lval) {
         using VT = std::decay_t<decltype(lval)>;
         if constexpr (!std::is_same_v<VT, float_type> && !std::is_integral_v<VT>)
@@ -400,7 +400,7 @@ inline void calc_parser<CharT>::validate_num_type(const val_type& lnum_val, cons
 }
 
 template <typename CharT>
-inline void calc_parser<CharT>::validate_int_only(const val_type& lnum_val, const val_type& rnum_val, const token& op_tok) {
+inline void calc_parser<CharT>::validate_is_int_type(const val_type& lnum_val, const val_type& rnum_val, const token& op_tok) {
     std::visit([&](const auto& lval) {
         using VT = std::decay_t<decltype(lval)>;
         if constexpr (!std::is_integral_v<VT>)
@@ -468,7 +468,7 @@ auto calc_parser<CharT>::arithmetic_expr(lookahead& lexer) -> val_type {
         if (lexer.peek_tok().id == token::bor) {
             auto op_tok = lexer.get_tok();
             auto rval = std::move(bor_term(lexer));
-            validate_int_only(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
+            validate_is_int_type(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
             lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -494,7 +494,7 @@ auto calc_parser<CharT>::bor_term(lookahead& lexer) -> val_type {
         if (lexer.peek_tok().id == token::bxor) {
             auto op_tok = lexer.get_tok();
             auto rval = std::move(bxor_term(lexer));
-            validate_int_only(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
+            validate_is_int_type(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
             lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -520,7 +520,7 @@ auto calc_parser<CharT>::bxor_term(lookahead& lexer) -> val_type {
         if (lexer.peek_tok().id == token::band) {
             auto op_tok = lexer.get_tok();
             auto rval = std::move(band_term(lexer));
-            validate_int_only(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
+            validate_is_int_type(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
             lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -622,7 +622,7 @@ auto calc_parser<CharT>::band_term(lookahead& lexer) -> val_type {
     auto do_shift = [&](const auto& shift_fn) {
         auto op_tok = lexer.get_tok();
         auto rval = shift_term(lexer);
-        validate_int_only(lval, rval, op_tok);
+        validate_is_int_type(lval, rval, op_tok);
         lval = std::visit(shift_fn, lval, rval);
     };
     for (;;) {
@@ -648,7 +648,7 @@ auto calc_parser<CharT>::shift_term(lookahead& lexer) -> val_type {
         if (lexer.peek_tok().id == token::add) {
             auto op_tok = lexer.get_tok();
             auto rval = std::move(term(lexer));
-            validate_num_type(lval, rval, op_tok);
+            validate_is_num_type(lval, rval, op_tok);
             lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -663,7 +663,7 @@ auto calc_parser<CharT>::shift_term(lookahead& lexer) -> val_type {
         } else if (lexer.peeked_tok().id == token::sub) {
             auto op_tok = lexer.get_tok();
             auto rval = std::move(term(lexer));
-            validate_num_type(lval, rval, op_tok);
+            validate_is_num_type(lval, rval, op_tok);
             lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -690,7 +690,7 @@ auto calc_parser<CharT>::term(lookahead& lexer) -> val_type {
         if (lexer.peek_tok().id == token::mul) {
             auto op_tok = lexer.get_tok();
             auto rval = std::move(factor(lexer));
-            validate_num_type(lval, rval, op_tok);
+            validate_is_num_type(lval, rval, op_tok);
             lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -705,7 +705,7 @@ auto calc_parser<CharT>::term(lookahead& lexer) -> val_type {
         } else if (lexer.peeked_tok().id == token::div) {
             auto op_tok = lexer.get_tok();
             auto rval = std::move(factor(lexer));
-            validate_num_type(lval, rval, op_tok);
+            validate_is_num_type(lval, rval, op_tok);
             lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -726,7 +726,7 @@ auto calc_parser<CharT>::term(lookahead& lexer) -> val_type {
         } else if (lexer.peek_tok().id == token::mod) {
             auto op_tok = lexer.get_tok();
             auto rval = std::move(factor(lexer));
-            validate_int_only(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
+            validate_is_int_type(lval, rval, op_tok); // do before apply_promoted() possibly changes integer type to float_type
             lval = apply_promoted([&](const auto& lval, const auto& rval) -> val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -796,7 +796,7 @@ auto calc_parser<CharT>::factor(lookahead& lexer) -> val_type {
         if (lexer.peek_tok().id == token::pow) {
             auto op_tok = lexer.get_tok();
             auto factor_val = std::move(factor(lexer));
-            validate_num_type(val, factor_val, op_tok);
+            validate_is_num_type(val, factor_val, op_tok);
             val = pow(get_as<float_type>(val), get_as<float_type>(factor_val));
         } else
             break;
