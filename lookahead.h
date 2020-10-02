@@ -37,14 +37,14 @@ inline auto calc_parser<CharT>::lookahead::get_tok() -> const token& {
         }
     }
     if (cached_tok_.error != token::no_error)
-        throw make_parse_error(parse_error::lexer_error, cached_tok_);
+        throw parse_error(parse_error::lexer_error, cached_tok_);
     return cached_tok_;
 }
 
 template <typename CharT>
 inline auto calc_parser<CharT>::lookahead::get_expected_tok(token_ids id) -> const token& {
     if (get_tok().id != id)
-        throw make_parse_error(parse_error::tok_expected, cached_tok_, id);
+        throw parse_error(parse_error::tok_expected, cached_tok_, id);
     return cached_tok_;
 }
 
