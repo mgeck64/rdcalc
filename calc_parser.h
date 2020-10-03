@@ -754,7 +754,7 @@ auto calc_parser<CharT>::primary_expression(lookahead& lexer) -> val_type {
             auto op_tok = lexer.get_tok();
             lval = std::visit([&](const auto& val) -> val_type {
                 using VT = std::decay_t<decltype(val)>;
-                if constexpr (std::is_same_v<VT, float_type> || std::is_integral_v<VT>)
+                if constexpr (std::is_floating_point_v<VT> || std::is_integral_v<VT>)
                     return tgamma(val + 1);
                 else
                     throw parse_error(parse_error::num_operand_expected, op_tok);
@@ -763,7 +763,7 @@ auto calc_parser<CharT>::primary_expression(lookahead& lexer) -> val_type {
             auto op_tok = lexer.get_tok();
             lval = std::visit([&](const auto& val) -> val_type {
                 using VT = std::decay_t<decltype(val)>;
-                if constexpr (std::is_same_v<VT, float_type> || std::is_integral_v<VT>) {
+                if constexpr (std::is_floating_point_v<VT> || std::is_integral_v<VT>) {
                     float_type cpi = cos(pi * val);
                     return pow(2.0, (1.0 + 2.0 * val - cpi) / 4.0)
                         * pow(pi, (cpi - 1.0) / 4.0) * tgamma(1.0 + val / 2.0);
@@ -989,10 +989,10 @@ auto calc_parser<CharT>::median(const list_type& list) -> val_type {
         list_.emplace_back(get_as<float_type>(val));
     std::sort(list_.begin(), list_.end());
 
-    if (list.size() % 2)
+    if (list_.size() % 2)
         return get_as<float_type>(list_[list_.size() / 2]);
-    return (get_as<float_type>(list[list.size() / 2 - 1]) +
-        get_as<float_type>(list[list.size() / 2])) / 2.0;
+    return (get_as<float_type>(list_[list_.size() / 2 - 1]) +
+        get_as<float_type>(list_[list_.size() / 2])) / 2.0;
 }
 
 #endif // CALC_PARSER_H
