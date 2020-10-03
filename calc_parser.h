@@ -279,17 +279,17 @@ template <typename T>
 auto calc_parser<CharT>::get_as(const val_type& val_var) -> T {
     // precondition: any of val_type's types is convertable to T
     switch (val_var.index()) {
-    case 0: return static_cast<T>(*std::get_if<0>(&val_var));
-    case 1: return static_cast<T>(*std::get_if<1>(&val_var));
-    case 2: return static_cast<T>(*std::get_if<2>(&val_var));
-    case 3: return static_cast<T>(*std::get_if<3>(&val_var));
-    case 4: return static_cast<T>(*std::get_if<4>(&val_var));
-    case 5: return static_cast<T>(*std::get_if<5>(&val_var));
-    case 6: return static_cast<T>(*std::get_if<6>(&val_var));
-    case 7: return static_cast<T>(*std::get_if<7>(&val_var));
-    case 8: return static_cast<T>(*std::get_if<8>(&val_var));
+    case 0: return static_cast<T>(std::get<std::variant_alternative_t<0, val_type_base>>(val_var));
+    case 1: return static_cast<T>(std::get<std::variant_alternative_t<1, val_type_base>>(val_var));
+    case 2: return static_cast<T>(std::get<std::variant_alternative_t<2, val_type_base>>(val_var));
+    case 3: return static_cast<T>(std::get<std::variant_alternative_t<3, val_type_base>>(val_var));
+    case 4: return static_cast<T>(std::get<std::variant_alternative_t<4, val_type_base>>(val_var));
+    case 5: return static_cast<T>(std::get<std::variant_alternative_t<5, val_type_base>>(val_var));
+    case 6: return static_cast<T>(std::get<std::variant_alternative_t<6, val_type_base>>(val_var));
+    case 7: return static_cast<T>(std::get<std::variant_alternative_t<7, val_type_base>>(val_var));
+    case 8: return static_cast<T>(std::get<std::variant_alternative_t<8, val_type_base>>(val_var));
     default:
-        // list_type or missed one; list_type case should have been handled in
+        // list_type or missed one; list_type case should be prevented in
         // higher-level code
         assert(false);
         throw parse_error(parse_error::unexpected_error);
@@ -335,16 +335,16 @@ inline auto calc_parser<CharT>::apply_promoted(const Fn& fn, const val_type& lva
     auto [lval_var_, rval_var_] = std::move(promoted(lval_var, rval_var));
     assert(lval_var_.index() == rval_var_.index());
     switch (lval_var_.index()) {
-    case 0: return fn(*std::get_if<0>(&lval_var_), *std::get_if<0>(&rval_var_));
-    case 1: return fn(*std::get_if<1>(&lval_var_), *std::get_if<1>(&rval_var_));
-    case 2: return fn(*std::get_if<2>(&lval_var_), *std::get_if<2>(&rval_var_));
-    case 3: return fn(*std::get_if<3>(&lval_var_), *std::get_if<3>(&rval_var_));
-    case 4: return fn(*std::get_if<4>(&lval_var_), *std::get_if<4>(&rval_var_));
-    case 5: return fn(*std::get_if<5>(&lval_var_), *std::get_if<5>(&rval_var_));
-    case 6: return fn(*std::get_if<6>(&lval_var_), *std::get_if<6>(&rval_var_));
-    case 7: return fn(*std::get_if<7>(&lval_var_), *std::get_if<7>(&rval_var_));
-    case 8: return fn(*std::get_if<8>(&lval_var_), *std::get_if<8>(&rval_var_));
-    case 9: return fn(*std::get_if<9>(&lval_var_), *std::get_if<9>(&rval_var_));
+    case 0: return fn(std::get<std::variant_alternative_t<0, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<0, val_type_base>>(rval_var_));
+    case 1: return fn(std::get<std::variant_alternative_t<1, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<1, val_type_base>>(rval_var_));
+    case 2: return fn(std::get<std::variant_alternative_t<2, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<2, val_type_base>>(rval_var_));
+    case 3: return fn(std::get<std::variant_alternative_t<3, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<3, val_type_base>>(rval_var_));
+    case 4: return fn(std::get<std::variant_alternative_t<4, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<4, val_type_base>>(rval_var_));
+    case 5: return fn(std::get<std::variant_alternative_t<5, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<5, val_type_base>>(rval_var_));
+    case 6: return fn(std::get<std::variant_alternative_t<6, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<6, val_type_base>>(rval_var_));
+    case 7: return fn(std::get<std::variant_alternative_t<7, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<7, val_type_base>>(rval_var_));
+    case 8: return fn(std::get<std::variant_alternative_t<8, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<8, val_type_base>>(rval_var_));
+    case 9: return fn(std::get<std::variant_alternative_t<9, val_type_base>>(lval_var_), std::get<std::variant_alternative_t<9, val_type_base>>(rval_var_));
     default: // missed one
         assert(false);
         throw parse_error(parse_error::unexpected_error);
