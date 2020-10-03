@@ -80,12 +80,12 @@ public:
             nested_list_invalid};
         static constexpr auto error_txt = std::array{
             // elements correspond with error_codes enums so enum can be used as index
-            "no_error", "lexer error", "syntax error", "number expected",
+            "- no_error", "- lexer error", "- syntax error", "- number expected",
             "is undefined", "was expected",
-            "numeric operand expected", "numeric operands expected",
-            "integer operand expected", "integer operands expected",
-            "negative shift value is invalid", "division by 0", "unexpected error",
-            "nested list at left is invalid"};
+            "- numeric operand expected", "- numeric operands expected",
+            "- integer operand expected", "- integer operands expected",
+            "- negative shift value is invalid", "- division by 0", "- unexpected error",
+            "- nested list at left is invalid"};
         error_codes error = no_error;
         token tok; // warning: has string_view that binds to the input string
         token_ids expected_tok = token::none; // valid for error == tok_expected
@@ -736,11 +736,13 @@ auto calc_parser<CharT>::primary_expression(lookahead& lexer) -> val_type {
     val_type lval;
     if (lexer.peek_tok().id == token::number) {
         static_assert(!std::is_same_v<val_type, token::num_type>); // otherwise lval = casted(lexer.get_tok().num_val) would suffice
-        auto tok_num = lexer.get_tok().num_val;
-        if (std::holds_alternative<token::int_type>(tok_num))
-            lval = std::get<token::int_type>(tok_num);
-        else
-            lval = std::get<token::float_type>(tok_num);
+        auto num_val = lexer.get_tok().num_val;
+        if (std::holds_alternative<token::int_type>(num_val))
+            lval = std::get<token::int_type>(num_val);
+        else {
+            assert(std::holds_alternative<token::float_type>(num_val));
+            lval = std::get<token::float_type>(num_val);
+        }
         lval = casted(lval);
     } else if (lexer.peeked_tok().id == token::identifier)
         lval = std::move(identifier(lexer));

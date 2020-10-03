@@ -21,7 +21,7 @@ auto calc_parser<CharT>::parse_error::error_str() const -> string {
     if (error == tok_expected) {
         char_helper::append_to(error_str_buf, token::token_txt.at(expected_tok));
         char_helper::append_to(error_str_buf, " ");
-    } else if (error != syntax_error) {
+    } else {
         char_helper::append_to(error_str_buf, "\"");
         char_helper::append_to(error_str_buf, tok.tok_str);
         char_helper::append_to(error_str_buf, "\" ");
