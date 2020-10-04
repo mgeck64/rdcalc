@@ -993,7 +993,7 @@ auto calc_parser<CharT>::sum(const list_type& list) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::prod(const list_type& list) -> val_type {
     float_type val = 1;
-        // note: product of empty list (empty set) is 1 see
+        // note: product of empty list (empty set) is 1; see
         // https://en.wikipedia.org/wiki/Empty_product
     for (auto list_val : list)
         val *= get_as<float_type>(list_val);
