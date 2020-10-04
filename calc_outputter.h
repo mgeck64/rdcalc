@@ -24,25 +24,28 @@ public:
 
 	void radix(radices radix);
 	auto radix() {return radix_;}
-	const calc_outputter& operator()(val_type num_val_) {num_val = num_val_; return *this;}
-	friend ostream& operator<<(ostream& out, const calc_outputter& outputter) {return outputter.output_fn(out, outputter.num_val);}
+	const calc_outputter& operator()(const val_type& val_var_) {val_var = val_var_; return *this;}
+	friend ostream& operator<<(ostream& out, const calc_outputter& outputter) {return outputter.output_fn(out, outputter.val_var);}
 
 private:
-	val_type num_val = float_type(0);
+	val_type val_var = float_type(0);
 	radices radix_ = radices::decimal;
 
-	static auto output_bin(ostream& out, val_type num_val) -> ostream&;
-	static auto output_oct(ostream& out, val_type num_val) -> ostream&;
-	static auto output_dec(ostream& out, val_type num_val) -> ostream&;
-	static auto output_hex(ostream& out, val_type num_val) -> ostream&;
+	static auto output_bin(ostream& out, const val_type& val_var) -> ostream&;
+	static auto output_oct(ostream& out, const val_type& val_var) -> ostream&;
+	static auto output_dec(ostream& out, const val_type& val_var) -> ostream&;
+	static auto output_hex(ostream& out, const val_type& val_var) -> ostream&;
 
-	using output_fn_type = auto (*)(ostream& out, val_type num_val) -> ostream&;
+	using output_fn_type = auto (*)(ostream& out, const val_type& val_var) -> ostream&;
 	output_fn_type output_fn = output_dec; // (note: auto not allowed for non-static members!)
 	static auto output_fn_for(radices radix) -> output_fn_type;
 
-	static auto output(ostream& out, val_type num_val, unsigned radix) -> ostream&;
+	static auto output(ostream& out, const val_type& val_var, unsigned radix) -> ostream&;
 	static auto output_as_uint(ostream& out, widest_uint_type val, unsigned radix) -> ostream&;
 	static auto output_as_ieee_double(ostream& out, float_type val, unsigned radix) -> ostream&;
+
+	template <typename OutValFn>
+	static auto output(OutValFn out_val_fn, ostream& out, const typename parser_type::list_type& list) -> ostream&;
 
 	static constexpr auto digits = std::array{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
 		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q',
@@ -75,47 +78,44 @@ auto calc_outputter<CharT>::output_fn_for(radices radix) -> output_fn_type {
 }
 
 template <typename CharT>
-inline auto calc_outputter<CharT>::output_bin(ostream& out, val_type num_val) -> ostream& {
-	return output(out, num_val, 2);
+inline auto calc_outputter<CharT>::output_bin(ostream& out, const val_type& val_var) -> ostream& {
+	return output(out, val_var, 2);
 }
 
 template <typename CharT>
-inline auto calc_outputter<CharT>::output_oct(ostream& out, val_type num_val) -> ostream& {
-	return output(out, num_val, 8);
+inline auto calc_outputter<CharT>::output_oct(ostream& out, const val_type& val_var) -> ostream& {
+	return output(out, val_var, 8);
 }
 
 template <typename CharT>
-auto calc_outputter<CharT>::output_dec(ostream& out, val_type num_val) -> ostream& {
+auto calc_outputter<CharT>::output_dec(ostream& out, const val_type& val_var) -> ostream& {
 	stream_state_restorer restorer(out);
 	out.precision(15);
-	std::visit([&](auto val) {
+	return std::visit([&](auto val) -> ostream& {
 		if constexpr (std::is_same_v<decltype(val), float_type>)
-			out << std::defaultfloat << val;
+			return out << std::defaultfloat << val;
 		else if constexpr (std::is_signed_v<decltype(val)>) {
 			static_assert(sizeof(val) <= sizeof(widest_int_type));
-			out << std::dec << static_cast<widest_int_type>(val); // cast ensures char type will be output as int
+			return out << std::dec << static_cast<widest_int_type>(val); // cast ensures char type will be output as int
 		} else if constexpr (std::is_unsigned_v<decltype(val)>) {
 			static_assert(sizeof(val) <= sizeof(widest_uint_type));
-			out << std::dec << static_cast<widest_uint_type>(val); // ditto
+			return out << std::dec << static_cast<widest_uint_type>(val); // ditto
 		} else {
 			static_assert(std::is_same_v<decltype(val), parser_type::list_type>);
-			for (auto itr = val.begin(); itr != val.end(); ++itr) {
-				if (itr != val.begin())
-					out << ',';
-				output_dec(out, *itr);
-			}
+			return output([](ostream& out, const val_type& val_var) -> ostream& {
+				return output_dec(out, val_var);
+			}, out, val);
 		}
-	}, num_val);
-	return out;
+	}, val_var);
 }
 
 template <typename CharT>
-auto calc_outputter<CharT>::output_hex(ostream& out, val_type num_val) -> ostream& {
-	return output(out, num_val, 16);
+auto calc_outputter<CharT>::output_hex(ostream& out, const val_type& val_var) -> ostream& {
+	return output(out, val_var, 16);
 }
 
 template <typename CharT>
-auto calc_outputter<CharT>::output(ostream& out, val_type num_val, unsigned radix) -> ostream& {
+auto calc_outputter<CharT>::output(ostream& out, const val_type& val_var, unsigned radix) -> ostream& {
 	return std::visit([&](const auto& val) -> ostream& {
 		using VT = std::decay_t<decltype(val)>;
 		if constexpr (std::is_integral_v<VT>) {
@@ -127,14 +127,11 @@ auto calc_outputter<CharT>::output(ostream& out, val_type num_val, unsigned radi
 			return output_as_ieee_double(out, val, radix);
 		else {
 			static_assert(std::is_same_v<VT, parser_type::list_type>);
-			for (auto itr = val.begin(); itr != val.end(); ++itr) {
-				if (itr != val.begin())
-					out << ',';
-				output(out, *itr, radix);
-			}
-			return out;;
+			return output([&](ostream& out, const val_type& val_var) -> ostream& {
+				return output(out, val_var, radix);
+			}, out, val); 
 		}
-	}, num_val);
+	}, val_var);
 }
 
 template <typename CharT>
@@ -263,6 +260,20 @@ auto calc_outputter<CharT>::output_as_ieee_double(ostream& out, float_type val, 
     }
 
     return out;
+}
+
+template <typename CharT>
+template <typename OutValFn>
+auto calc_outputter<CharT>::output(OutValFn out_val_fn, ostream& out, const typename parser_type::list_type& list) -> ostream& {
+	if (!list.size())
+		out << "none";
+	else 
+		for (auto itr = list.begin(); itr != list.end(); ++itr) {
+			if (itr != list.begin())
+				out << ',';
+			out_val_fn(out, *itr);
+		}
+	return out;
 }
 
 #endif // CALC_OUTPUTTER_H
