@@ -283,7 +283,8 @@ void calc_parser<CharT>::int_result_tag(int_result_tags int_result_tag) {
 template <typename CharT>
 template <typename T>
 auto calc_parser<CharT>::get_as(const val_type& val_var) -> T {
-    // precondition: any of val_type's types is convertable to T
+    // precondition: any of val_type's types is convertable to T (except for
+    // list_type (#9), see below)
     switch (val_var.index()) {
     case 0: return static_cast<T>(std::get<std::variant_alternative_t<0, val_type_base>>(val_var));
     case 1: return static_cast<T>(std::get<std::variant_alternative_t<1, val_type_base>>(val_var));
