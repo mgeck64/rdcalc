@@ -217,7 +217,7 @@ private:
     // simple linear search will be adequate
 
     using list_fn = val_type (*)(const val_type&);
-    static std::array<std::pair<const char*, list_fn>, 6> list_fn_table;
+    static std::array<std::pair<const char*, list_fn>, 9> list_fn_table;
     // list_fn_table: simple unordered array; expected to be small enough that
     // simple linear search will be adequate
 
@@ -228,16 +228,22 @@ private:
     static auto sum(const val_type& val_var) -> val_type;
     static auto prod(const val_type& val_var) -> val_type;
     static auto avg(const val_type& val_var) -> val_type;
+    static auto geomean(const val_type& val_var) -> val_type;
+    static auto harmmean(const val_type& val_var) -> val_type;
     static auto variance(const val_type& val_var) -> val_type;
     static auto stddev(const val_type& val_var) -> val_type;
     static auto median(const val_type& val_var) -> val_type;
+    static auto mode(const val_type& val_var) -> val_type;
 
     static auto sum(const list_type& list) -> val_type;
     static auto prod(const list_type& list) -> val_type;
     static auto avg(const list_type& list) -> val_type;
+    static auto geomean(const list_type& list) -> val_type;
+    static auto harmmean(const list_type& list) -> val_type;
     static auto variance(const list_type& list) -> val_type;
     static auto stddev(const list_type& list) -> val_type;
     static auto median(const list_type& list) -> val_type;
+    static auto mode(const list_type& list) -> val_type;
 
     static constexpr auto pi = 3.14159265358979323846;
     static constexpr auto e = 2.71828182845904523536;
@@ -873,13 +879,16 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::unary_fn>, 20> ca
 }};
 
 template <typename CharT>
-std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 6> calc_parser<CharT>::list_fn_table = {{
+std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 9> calc_parser<CharT>::list_fn_table = {{
     {"sum", sum},
     {"prod", prod},
     {"avg", avg},
+    {"geomean", geomean},
+    {"harmmean", harmmean},
     {"variance", variance},
     {"stddev", stddev},
-    {"median", median}
+    {"median", median},
+    {"mode", mode}
 }};
 
 template <typename CharT>
@@ -907,6 +916,26 @@ auto calc_parser<CharT>::avg(const val_type& val_var) -> val_type {
     return std::visit([](const auto& val) -> val_type {
         if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
             return avg(val);
+        else
+            return val;
+    }, val_var);
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::geomean(const val_type& val_var) -> val_type {
+    return std::visit([](const auto& val) -> val_type {
+        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
+            return geomean(val);
+        else
+            return val;
+    }, val_var);
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::harmmean(const val_type& val_var) -> val_type {
+    return std::visit([](const auto& val) -> val_type {
+        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
+            return harmmean(val);
         else
             return val;
     }, val_var);
@@ -943,6 +972,16 @@ auto calc_parser<CharT>::median(const val_type& val_var) -> val_type {
 }
 
 template <typename CharT>
+auto calc_parser<CharT>::mode(const val_type& val_var) -> val_type {
+    return std::visit([](const auto& val) -> val_type {
+        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
+            return mode(val);
+        else
+            return list_type(); // no modes for single item; return empty list
+    }, val_var);
+}
+
+template <typename CharT>
 auto calc_parser<CharT>::sum(const list_type& list) -> val_type {
     float_type val = 0;
     for (auto list_val : list)
@@ -953,6 +992,8 @@ auto calc_parser<CharT>::sum(const list_type& list) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::prod(const list_type& list) -> val_type {
     float_type val = 1;
+        // note: product of empty list (empty set) is 1 see
+        // https://en.wikipedia.org/wiki/Empty_product
     for (auto list_val : list)
         val *= get_as<float_type>(list_val);
     return val;
@@ -964,6 +1005,22 @@ auto calc_parser<CharT>::avg(const list_type& list) -> val_type {
     for (auto list_val : list)
         val += get_as<float_type>(list_val);
     return val / list.size();
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::geomean(const list_type& list) -> val_type {
+    float_type val = 1;
+    for (auto list_val : list)
+        val *= get_as<float_type>(list_val);
+    return pow(val, 1.0 / list.size());
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::harmmean(const list_type& list) -> val_type {
+    float_type val = 0;
+    for (auto list_val : list)
+        val += 1.0 / get_as<float_type>(list_val);
+    return list.size() / val;
 }
 
 template <typename CharT>
@@ -995,6 +1052,45 @@ auto calc_parser<CharT>::median(const list_type& list) -> val_type {
         return get_as<float_type>(list_[list_.size() / 2]);
     return (get_as<float_type>(list_[list_.size() / 2 - 1]) +
         get_as<float_type>(list_[list_.size() / 2])) / 2.0;
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::mode(const list_type& list) -> val_type {
+    if (list.size() < 2)
+        return list_type();
+
+    list_type list_;
+    list_.reserve(list.size());
+    for (auto& val: list)
+        list_.emplace_back(get_as<float_type>(val));
+    std::sort(list_.begin(), list_.end());
+
+    using int_type = typename list_type::size_type;
+    std::vector<int_type> counts; // counts will be in correspondance with list_
+    counts.reserve(list_.size());
+    int_type high_count = 2; // 2 to exclude modes that would be just a single item
+
+    int_type count = 1;
+    for (int_type idx = 1; idx <= list_.size(); ++idx) {// note: min. size of list_ is 2
+        counts.emplace_back(count);
+        if (idx < list_.size() && list_[idx - 1] == list_[idx])
+            ++count;
+        else {
+            if (count > high_count)
+                high_count = count;
+            count = 1;
+        }
+    }
+    
+    assert(counts.size() == list_.size());
+    int_type list_idx = 0;
+    for (auto itr = counts.begin(); itr != counts.end(); ++itr)
+        if (*itr == high_count)
+            ++list_idx;
+        else
+            list_.erase(list_.begin() + list_idx);
+    
+    return list_;
 }
 
 #endif // CALC_PARSER_H
