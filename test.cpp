@@ -23,12 +23,13 @@ int main() {
                 break;
             cout << outputter(parser.last_val()) << endl;
         } catch (const parser_t::parse_error& e) {
-            e.assert_view_is_valid_for(line_buf.data());
             cout << e.error_str() << endl;
-            cout << line_buf.data() << endl;
-            for (auto n = e.tok.tok_str.data() - line_buf.data(); n; --n)
-                cout << '.';
-            cout << "^" << endl;
+            if (e.view_is_valid_for(line_buf.data())) {
+                cout << line_buf.data() << endl;
+                for (auto n = e.tok.tok_str.data() - line_buf.data(); n; --n)
+                    cout << '.';
+                cout << "^" << endl;
+            }
         }
     }
 }
