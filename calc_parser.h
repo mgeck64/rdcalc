@@ -281,7 +281,7 @@ template <typename CharT>
 template <typename T>
 auto calc_parser<CharT>::get_as(const val_type& val_var) -> T {
     // precondition: any of val_type's types is convertable to T (except for
-    // list_type (#9), see below)
+    // list_type, case 9 below)
     switch (val_var.index()) {
     case 0: return static_cast<T>(std::get<std::variant_alternative_t<0, val_type_base>>(val_var));
     case 1: return static_cast<T>(std::get<std::variant_alternative_t<1, val_type_base>>(val_var));
@@ -293,7 +293,7 @@ auto calc_parser<CharT>::get_as(const val_type& val_var) -> T {
     case 7: return static_cast<T>(std::get<std::variant_alternative_t<7, val_type_base>>(val_var));
     case 8: return static_cast<T>(std::get<std::variant_alternative_t<8, val_type_base>>(val_var));
     case 9:
-        static_assert(std::is_same_v<std::variant_alternative_t<9, val_type_base>, list_type>);
+        static_assert(std::is_same_v<list_type, std::variant_alternative_t<9, val_type_base>>); // alternative 9 is list_type
         if constexpr (std::is_same_v<T, list_type>)
             return std::get<list_type>(val_var);
     default: // missed one, or fall-thru from above case for list_type, which calling code should preclude
