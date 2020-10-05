@@ -39,7 +39,7 @@ public:
 
     struct list_type : std::vector<num_type> {
         template <typename T>
-        list_type(const T& val) // convert val to one element list of val
+        list_type(const T& val) // convert val to a one element list of val
             : std::vector<num_type>(1, val) {}
 
         list_type() = default;
