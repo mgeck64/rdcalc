@@ -37,7 +37,14 @@ public:
         std::uint32_t, std::int64_t, std::uint64_t, float_type>;
         // in order of ascending promotability
 
-    using list_type = std::vector<num_type>;
+    struct list_type : std::vector<num_type> {
+        template <typename T>
+        list_type(const T& val) // convert val to one element list of val
+            : std::vector<num_type>(1, val) {}
+
+        list_type() = default;
+        list_type(const list_type&) = default; // make sure template ctor doesn't generate this case
+    };
 
     using val_type_base = std::variant<
         std::int8_t, std::uint8_t, std::int16_t, std::uint16_t, std::int32_t,
@@ -216,7 +223,7 @@ private:
     // unary_fn_table: simple unordered array; expected to be small enough that
     // simple linear search will be adequate
 
-    using list_fn = val_type (*)(const val_type&);
+    using list_fn = val_type (*)(const list_type&);
     static std::array<std::pair<const char*, list_fn>, 9> list_fn_table;
     // list_fn_table: simple unordered array; expected to be small enough that
     // simple linear search will be adequate
@@ -224,16 +231,6 @@ private:
     static bool identifiers_match(string_view inp_symb, const char* tab_symb);
     // input identifier matches identifier in table?
     // internally, identifier in table is const char* regardless of CharT
-
-    static auto sum(const val_type& val_var) -> val_type;
-    static auto prod(const val_type& val_var) -> val_type;
-    static auto avg(const val_type& val_var) -> val_type;
-    static auto geomean(const val_type& val_var) -> val_type;
-    static auto harmmean(const val_type& val_var) -> val_type;
-    static auto variance(const val_type& val_var) -> val_type;
-    static auto stddev(const val_type& val_var) -> val_type;
-    static auto median(const val_type& val_var) -> val_type;
-    static auto mode(const val_type& val_var) -> val_type;
 
     static auto sum(const list_type& list) -> val_type;
     static auto prod(const list_type& list) -> val_type;
@@ -295,9 +292,11 @@ auto calc_parser<CharT>::get_as(const val_type& val_var) -> T {
     case 6: return static_cast<T>(std::get<std::variant_alternative_t<6, val_type_base>>(val_var));
     case 7: return static_cast<T>(std::get<std::variant_alternative_t<7, val_type_base>>(val_var));
     case 8: return static_cast<T>(std::get<std::variant_alternative_t<8, val_type_base>>(val_var));
-    default:
-        // list_type or missed one; list_type case should be prevented in
-        // higher-level code
+    case 9:
+        static_assert(std::is_same_v<std::variant_alternative_t<9, val_type_base>, list_type>);
+        if constexpr (std::is_same_v<T, list_type>)
+            return std::get<list_type>(val_var);
+    default: // missed one, or fall-thru from above case for list_type, which calling code should preclude
         assert(false);
         throw parse_error(parse_error::unexpected_error);
     }
@@ -805,7 +804,7 @@ auto calc_parser<CharT>::identifier(lookahead& lexer) -> val_type {
     // <list fn name>
     for (auto pos = list_fn_table.begin(); pos != list_fn_table.end(); ++pos)
         if (identifiers_match(lexer.cached_tok().tok_str, pos->first))
-            return pos->second(group_or_list(lexer));
+            return pos->second(get_as<list_type>(group_or_list(lexer)));
 
     // <internal value>
     if (identifiers_match(lexer.cached_tok().tok_str, "pi"))
@@ -891,96 +890,6 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 9> calc
     {"median", median},
     {"mode", mode}
 }};
-
-template <typename CharT>
-auto calc_parser<CharT>::sum(const val_type& val_var) -> val_type {
-    return std::visit([](const auto& val) -> val_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            return sum(val);
-        else
-            return val;
-    }, val_var);
-}
-
-template <typename CharT>
-auto calc_parser<CharT>::prod(const val_type& val_var) -> val_type {
-    return std::visit([](const auto& val) -> val_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            return prod(val);
-        else
-            return val;
-    }, val_var);
-}
-
-template <typename CharT>
-auto calc_parser<CharT>::avg(const val_type& val_var) -> val_type {
-    return std::visit([](const auto& val) -> val_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            return avg(val);
-        else
-            return val;
-    }, val_var);
-}
-
-template <typename CharT>
-auto calc_parser<CharT>::geomean(const val_type& val_var) -> val_type {
-    return std::visit([](const auto& val) -> val_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            return geomean(val);
-        else
-            return val;
-    }, val_var);
-}
-
-template <typename CharT>
-auto calc_parser<CharT>::harmmean(const val_type& val_var) -> val_type {
-    return std::visit([](const auto& val) -> val_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            return harmmean(val);
-        else
-            return val;
-    }, val_var);
-}
-
-template <typename CharT>
-auto calc_parser<CharT>::variance(const val_type& val_var) -> val_type {
-    return std::visit([](const auto& val) -> val_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            return variance(val);
-        else
-            return std::numeric_limits<float_type>::infinity();
-    }, val_var);
-}
-
-template <typename CharT>
-auto calc_parser<CharT>::stddev(const val_type& val_var) -> val_type {
-    return std::visit([](const auto& val) -> val_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            return stddev(val);
-        else
-            return std::numeric_limits<float_type>::infinity();
-    }, val_var);
-}
-
-template <typename CharT>
-auto calc_parser<CharT>::median(const val_type& val_var) -> val_type {
-    return std::visit([](const auto& val) -> val_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            return median(val);
-        else
-            return val;
-    }, val_var);
-}
-
-template <typename CharT>
-auto calc_parser<CharT>::mode(const val_type& val_var) -> val_type {
-    return std::visit([](const auto& val) -> val_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            return mode(val);
-        else
-            return list_type(); // no modes for single item; return empty list
-    }, val_var);
-}
 
 template <typename CharT>
 auto calc_parser<CharT>::sum(const list_type& list) -> val_type {
