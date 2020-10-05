@@ -7,6 +7,14 @@
 #include "calc_parser.h"
 
 template <typename CharT>
+inline calc_parser<CharT>::parse_error::parse_error(error_codes error_, const token& tok_, token_ids expected_tok_)
+// expected_tok != token::unspecified is only valid for error == tok_expected
+    : error{error_}, tok{tok_}, expected_tok{expected_tok_}, tok_str{tok_.tok_str}
+{
+    assert(expected_tok == token::unspecified || error == tok_expected);
+}
+
+template <typename CharT>
 inline bool calc_parser<CharT>::parse_error::view_is_valid_for(const CharT* input) const {
     return (tok.tok_str.data() >= input)
         && (tok.tok_str.data() + tok.tok_str.size() <= input + char_helper::strlen(input));
@@ -45,9 +53,9 @@ auto calc_parser<CharT>::parse_error::error_str() const -> string {
         char_helper::append_to(error_str_buf, token::token_txt.at(expected_tok));
         char_helper::append_to(error_str_buf, " ");
         token_shown = true;
-    } else if (!error_txt_prefix_len || tok.tok_str.size()) { // !error_txt_prefix_len: error_txt_ can't be shown independently of the token, so show it even if blank
+    } else if (!error_txt_prefix_len || !tok_str.empty()) { // !error_txt_prefix_len: error_txt_ can't be shown independently of the token, so show it even if blank
         char_helper::append_to(error_str_buf, "\"");
-        char_helper::append_to(error_str_buf, tok.tok_str);
+        char_helper::append_to(error_str_buf, tok_str);
         char_helper::append_to(error_str_buf, "\" ");
         token_shown = true;
     }

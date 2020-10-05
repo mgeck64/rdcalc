@@ -84,7 +84,7 @@ public:
             num_operand_expected, num_operands_expected,
             int_operand_expected, int_operands_expected,
             negative_shift_invalid, division_by_0, unexpected_error,
-            nested_list_invalid};
+            nested_list_invalid, unexpected_end_of_input};
         static constexpr auto error_txt = std::array{
             // elements correspond with error_codes enums so enum can be used as index
             "- no_error", "- lexer error", "- syntax error", "- number expected",
@@ -92,16 +92,15 @@ public:
             "- numeric operand expected", "- numeric operands expected",
             "- integer operand expected", "- integer operands expected",
             "- negative shift value is invalid", "- division by 0", "- unexpected error",
-            "- nested list at left is invalid"};
-        error_codes error = no_error;
-        token tok; // warning: has string_view that binds to the input string
-        token_ids expected_tok = token::none; // valid for error == tok_expected
-        bool view_is_valid_for(const CharT* input) const;
+            "- nested list at left is invalid", "- unexpected end of input"};
+        const error_codes error = no_error;
+        const token tok; // warning: has string_view that may be bound to the input string or may be default string view
+        const string tok_str; // copy of tok.tok_str; can use safely instead of tok.tok_str
+        const token_ids expected_tok = token::none; // valid for error == tok_expected
+        bool view_is_valid_for(const CharT* input) const; // is tok.tok_str bound to input?
         auto error_str() const -> string;
 
-        parse_error(error_codes error_, const token& tok_ = {}, token_ids expected_tok_ = token::unspecified) :
-        // expected_tok is only valid for error == tok_expected
-            error{error_}, tok{tok_}, expected_tok{expected_tok_} {}
+        parse_error(error_codes error_, const token& tok_ = {}, token_ids expected_tok_ = token::unspecified);
     };
 
     using error_codes = typename parse_error::error_codes;
@@ -293,7 +292,7 @@ auto calc_parser<CharT>::get_as(const val_type& val_var) -> T {
     case 7: return static_cast<T>(std::get<std::variant_alternative_t<7, val_type_base>>(val_var));
     case 8: return static_cast<T>(std::get<std::variant_alternative_t<8, val_type_base>>(val_var));
     case 9:
-        static_assert(std::is_same_v<list_type, std::variant_alternative_t<9, val_type_base>>); // alternative 9 is list_type
+        static_assert(std::is_same_v<list_type, std::variant_alternative_t<9, val_type_base>>); // alternative 9 should be list_type
         if constexpr (std::is_same_v<T, list_type>)
             return std::get<list_type>(val_var);
     default: // missed one, or fall-thru from above case for list_type, which calling code should preclude
@@ -754,6 +753,8 @@ auto calc_parser<CharT>::primary_expression(lookahead& lexer) -> val_type {
         lval = std::move(identifier(lexer));
     else if (lexer.peeked_tok().id == token::lparen)
         lval = std::move(group_or_list(lexer));
+    else if (lexer.peeked_tok().id == token::end)
+        throw parse_error(parse_error::unexpected_end_of_input, lexer.peeked_tok());
     else
         throw parse_error(parse_error::syntax_error, lexer.peeked_tok());
 
