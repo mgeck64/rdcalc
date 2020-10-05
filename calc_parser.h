@@ -96,7 +96,7 @@ public:
         error_codes error = no_error;
         token tok; // warning: has string_view that binds to the input string
         token_ids expected_tok = token::none; // valid for error == tok_expected
-        void assert_view_is_valid_for(const CharT* input) const;
+        bool view_is_valid_for(const CharT* input) const;
         auto error_str() const -> string;
 
         parse_error(error_codes error_, const token& tok_ = {}, token_ids expected_tok_ = token::unspecified) :
