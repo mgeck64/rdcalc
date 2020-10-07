@@ -18,6 +18,8 @@ using namespace std::literals;
 
 template <typename CharT>  // CharT: char or wchar_t
 struct token {
+// contains information about a token scanned by calc_lexer; created by
+// calc_lexer and used by calc_parser
     using string_view = std::basic_string_view<CharT>;
 
     enum token_ids {unspecified, end, number, identifier, add, sub, mul, div,
@@ -43,7 +45,7 @@ struct token {
 
     enum radices : unsigned char {decimal = 0, base2 = 2, base8 = 8, base10 = 10, base16 = 16};
 
-    string_view tok_str = {}; // view of scanned token in input string (or empty string)
+    string_view tok_str = {}; // view of scanned token in input string, or default constructed view
 
     enum error_codes {no_error, integer_expected, out_of_range, invalid_number, mfac_unsupported};
     static constexpr auto error_txt = std::array{
