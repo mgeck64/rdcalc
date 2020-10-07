@@ -77,7 +77,7 @@ public:
     auto int_result_tag() const -> auto {return int_result_tag_;}
     void int_result_tag(int_result_tags int_result_tag);
 
-    struct parse_error { // exception
+    struct parse_error { // parser exception
         enum error_codes {
             no_error, lexer_error, syntax_error, number_expected,
             undefined_identifier, tok_expected,
@@ -93,10 +93,10 @@ public:
             "- integer operand expected", "- integer operands expected",
             "- negative shift value is invalid", "- division by 0", "- unexpected error",
             "- nested list at left is invalid", "- unexpected end of input"};
-        const error_codes error = no_error;
-        const token tok; // warning: has string_view that may be bound to the input string or may be default string view
-        const string tok_str; // copy of tok.tok_str; can use safely instead of tok.tok_str
-        const token_ids expected_tok = token::none; // valid for error == tok_expected
+        error_codes error = no_error;
+        token tok; // warning: has string_view that may be bound to the input string or may be default string view
+        string tok_str; // copy of tok.tok_str; can use safely instead of tok.tok_str
+        token_ids expected_tok = token::none; // valid for error == tok_expected
         bool view_is_valid_for(const CharT* input) const; // is tok.tok_str bound to input?
         auto error_str() const -> string;
 
