@@ -225,7 +225,7 @@ private:
     // simple linear search will be adequate
 
     using list_fn = val_type (*)(const list_type&);
-    static std::array<std::pair<const char*, list_fn>, 17> list_fn_table;
+    static std::array<std::pair<const char*, list_fn>, 20> list_fn_table;
     // list_fn_table: simple unordered array; expected to be small enough that
     // simple linear search will be adequate
 
@@ -252,6 +252,9 @@ private:
     static auto quartile2(const list_type& list) -> val_type;
     static auto quartile3(const list_type& list) -> val_type;
     static auto iqr(const list_type& list) -> val_type;
+    static auto range(const list_type& list) -> val_type;
+    static auto mad(const list_type& list) -> val_type;
+    static auto qdev(const list_type& list) -> val_type;
 
     static constexpr auto pi = 3.14159265358979323846;
     static constexpr auto e = 2.71828182845904523536;
@@ -897,7 +900,7 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::unary_fn>, 20> ca
 }};
 
 template <typename CharT>
-std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 17> calc_parser<CharT>::list_fn_table = {{
+std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 20> calc_parser<CharT>::list_fn_table = {{
     {"sum", sum},
     {"prod", prod},
     {"avg", avg},
@@ -914,7 +917,10 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 17> cal
     {"quartile1", quartile1},
     {"quartile2", quartile2},
     {"quartile3", quartile3},
-    {"iqr", iqr}
+    {"iqr", iqr},
+    {"range", range},
+    {"mad", mad},
+    {"qdev", qdev}
 }};
 
 template <typename CharT>
@@ -1019,7 +1025,7 @@ inline auto calc_parser<CharT>::quantile(const list_type& list, float_type perce
     std::sort(list_.begin(), list_.end());
 
     float_type fidx = percent * (list_.size() + 1) - 1;
-    typename list_type::size_type idx = fidx; // truncated to integer
+    auto idx = static_cast<typename list_type::size_type>(fidx); // truncated to integer
     if (idx == list_.size()) // percent is 1 (not testing percent directly in case of rounding error)
         return list_.back();
 
@@ -1119,6 +1125,36 @@ auto calc_parser<CharT>::quartile3(const list_type& list) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::iqr(const list_type& list) -> val_type {
     return get_as<float_type>(quantile(list, 0.75)) - get_as<float_type>(quantile(list,0.25));
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::range(const list_type& list) -> val_type {
+    if (!list.size())
+        return list_type();
+    float_type max = get_as<float_type>(list.front());
+    float_type min = get_as<float_type>(list.front());
+    for (auto itr = list.begin() + 1; itr != list.end(); ++itr) {
+        float_type item = get_as<float_type>(*itr);
+        if (item < min)
+            min = item;
+        if (item > max)
+            max = item;
+    }
+    return max - min;
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::mad(const list_type& list) -> val_type {
+    auto mean = get_as<float_type>(avg(list));
+    float_type sum = 0;
+    for (auto list_val : list)
+        sum += fabs(get_as<float_type>(list_val) - mean);
+    return sum / list.size(); // inf for empty list
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::qdev(const list_type& list) -> val_type {
+    return (get_as<float_type>(quartile3(list)) - get_as<float_type>(quartile1(list))) / 2;
 }
 
 #endif // CALC_PARSER_H
