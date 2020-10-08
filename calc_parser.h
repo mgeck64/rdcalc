@@ -84,7 +84,7 @@ public:
             num_operand_expected, num_operands_expected,
             int_operand_expected, int_operands_expected,
             negative_shift_invalid, division_by_0, unexpected_error,
-            nested_list_invalid, unexpected_end_of_input};
+            list_at_left_invalid_here, unexpected_end_of_input};
         static constexpr auto error_txt = std::array{
             // elements correspond with error_codes enums so enum can be used as index
             "- no_error", "- lexer error", "- syntax error", "- number expected",
@@ -92,7 +92,7 @@ public:
             "- non-numeric operand was given", "- non-numeric operand was given",
             "- integer operand expected", "- integer operands expected",
             "- negative shift value is invalid", "- division by 0", "- unexpected error",
-            "- nested list at left is invalid", "- unexpected end of input"};
+            "- list at left is invalid here", "- unexpected end of input"};
         error_codes error = no_error;
         token tok; // warning: has string_view that may be bound to the input string or may be default string view
         string tok_str; // copy of tok.tok_str; can use safely instead of tok.tok_str
@@ -215,7 +215,9 @@ private:
     auto factor(lookahead& lexer)-> val_type;
     auto primary_expression(lookahead& lexer)-> val_type;
     auto identifier(lookahead& lexer)-> val_type;
-    auto group_or_list(lookahead& lexer, size_t expected_count = 0)-> val_type;
+
+    enum class group_or_list_options {list_valid, list_invalid};
+    auto group_or_list(lookahead& lexer, group_or_list_options option = group_or_list_options::list_valid)-> val_type;
 
     using unary_fn = float_type (*)(float_type);
     static std::array<std::pair<const char*, unary_fn>, 20> unary_fn_table;
@@ -304,8 +306,12 @@ auto calc_parser<CharT>::get_as(const val_type& val_var) -> T {
     case 9:
         static_assert(std::is_same_v<list_type, std::variant_alternative_t<9, val_type_base>>); // alternative 9 should be list_type
         if constexpr (std::is_same_v<T, list_type>)
-            return std::get<list_type>(val_var);
-    default: // missed one, or fall-thru from above case for list_type, which calling code should preclude
+            return std::get<T>(val_var);
+        else { // unsupported conversion to T; calling code should preclude this
+            assert(false);
+            throw parse_error(parse_error::unexpected_error);
+        }
+    default: // missed one
         assert(false);
         throw parse_error(parse_error::unexpected_error);
     }
@@ -710,7 +716,7 @@ auto calc_parser<CharT>::factor(lookahead& lexer) -> val_type {
             else if constexpr (std::is_unsigned_v<VT>) // (note: MSVC++ doesn't like negating unsigned type)
                 return val;
             else
-                throw parse_error(parse_error::num_operand_expected, op_tok); 
+                throw parse_error(parse_error::num_operand_expected, op_tok);
         }, val_num);
     }
     if (lexer.peeked_tok().id == token::bnot) {
@@ -810,7 +816,7 @@ auto calc_parser<CharT>::identifier(lookahead& lexer) -> val_type {
     // <unary fn name>
     for (auto pos = unary_fn_table.begin(); pos != unary_fn_table.end(); ++pos)
         if (identifiers_match(lexer.cached_tok().tok_str, pos->first))
-            return pos->second(get_as<float_type>(group_or_list(lexer, 1)));
+            return pos->second(get_as<float_type>(group_or_list(lexer, group_or_list_options::list_invalid)));
 
     // <list fn name>
     for (auto pos = list_fn_table.begin(); pos != list_fn_table.end(); ++pos)
@@ -829,18 +835,17 @@ auto calc_parser<CharT>::identifier(lookahead& lexer) -> val_type {
 };
 
 template <typename CharT>
-auto calc_parser<CharT>::group_or_list(lookahead& lexer, size_t expected_count) -> val_type {
-// <group_or_list> ::= '(' <expression> [ ',' <expression> ]... ')'
-// expected_count: 0 is special value and means any count
-    lexer.get_expected_tok(token::lparen);
+auto calc_parser<CharT>::group_or_list(lookahead& lexer, group_or_list_options option) -> val_type {
+// <group or list> ::= '(' <expression> [ ',' <expression> ]... ')'
+// expected_count: 0 is special value and means any count.
+    auto tok = lexer.get_expected_tok(token::lparen);
 
     val_type val;
     list_type list;
-    token tok;
 
     auto convert = [&](const auto& val) -> num_type {
         if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            throw parse_error(parse_error::nested_list_invalid, tok);
+            throw parse_error(parse_error::list_at_left_invalid_here, tok);
         else
             return val;
     };
@@ -851,18 +856,20 @@ auto calc_parser<CharT>::group_or_list(lookahead& lexer, size_t expected_count) 
             break;
         tok = lexer.get_tok();
         list.emplace_back(std::visit(convert, val));
-        if (expected_count && list.size() == expected_count)
-            throw parse_error(parse_error::tok_expected, tok, token::rparen);
     }
 
     tok = lexer.get_expected_tok(token::rparen);
-    if (expected_count && (list.size() + 1 != expected_count))
-        throw parse_error(parse_error::number_expected, tok);
 
-    if (!list.size())
-        return val;
-    list.emplace_back(std::visit(convert, val));
-    return list;
+    if (option == group_or_list_options::list_invalid &&
+            (list.size() || std::holds_alternative<list_type>(val)))
+        throw parse_error(parse_error::list_at_left_invalid_here, tok);
+
+    if (list.size()) {
+        list.emplace_back(std::visit(convert, val));
+        return list;
+    }
+
+    return val;
 }
 
 template <typename CharT>
