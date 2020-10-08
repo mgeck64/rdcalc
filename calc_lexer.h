@@ -54,7 +54,7 @@ struct token {
     error_codes error = no_error;
 
     token(token_ids id_, num_type num_val_, string_view tok_str_, error_codes error_) :
-            id{id_}, num_val{num_val_}, tok_str{tok_str_}, error{error_}  {}
+        id{id_}, num_val{num_val_}, tok_str{tok_str_}, error{error_}  {}
 
     token() = default;
 };
