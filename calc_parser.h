@@ -223,7 +223,7 @@ private:
     // simple linear search will be adequate
 
     using list_fn = val_type (*)(const list_type&);
-    static std::array<std::pair<const char*, list_fn>, 9> list_fn_table;
+    static std::array<std::pair<const char*, list_fn>, 17> list_fn_table;
     // list_fn_table: simple unordered array; expected to be small enough that
     // simple linear search will be adequate
 
@@ -236,10 +236,20 @@ private:
     static auto avg(const list_type& list) -> val_type;
     static auto geomean(const list_type& list) -> val_type;
     static auto harmmean(const list_type& list) -> val_type;
+    static auto variance(const list_type& list, typename list_type::size_type n_adjustment) -> float_type;
     static auto variance(const list_type& list) -> val_type;
     static auto stddev(const list_type& list) -> val_type;
+    static auto pvariance(const list_type& list) -> val_type;
+    static auto pstddev(const list_type& list) -> val_type;
+    static auto quantile(const list_type& list, float_type percent) -> val_type;
     static auto median(const list_type& list) -> val_type;
     static auto mode(const list_type& list) -> val_type;
+    static auto min(const list_type& list) -> val_type;
+    static auto max(const list_type& list) -> val_type;
+    static auto quartile1(const list_type& list) -> val_type;
+    static auto quartile2(const list_type& list) -> val_type;
+    static auto quartile3(const list_type& list) -> val_type;
+    static auto iqr(const list_type& list) -> val_type;
 
     static constexpr auto pi = 3.14159265358979323846;
     static constexpr auto e = 2.71828182845904523536;
@@ -880,7 +890,7 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::unary_fn>, 20> ca
 }};
 
 template <typename CharT>
-std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 9> calc_parser<CharT>::list_fn_table = {{
+std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 17> calc_parser<CharT>::list_fn_table = {{
     {"sum", sum},
     {"prod", prod},
     {"avg", avg},
@@ -888,8 +898,16 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 9> calc
     {"harmmean", harmmean},
     {"variance", variance},
     {"stddev", stddev},
+    {"pvariance", pvariance},
+    {"pstddev", pstddev},
     {"median", median},
-    {"mode", mode}
+    {"mode", mode},
+    {"min", min},
+    {"max", max},
+    {"quartile1", quartile1},
+    {"quartile2", quartile2},
+    {"quartile3", quartile3},
+    {"iqr", iqr}
 }};
 
 template <typename CharT>
@@ -935,34 +953,78 @@ auto calc_parser<CharT>::harmmean(const list_type& list) -> val_type {
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::variance(const list_type& list) -> val_type {
-    assert(list.size() > 0);
+inline auto calc_parser<CharT>::variance(const list_type& list, typename list_type::size_type n_adjustment) -> float_type {
+// n_adjustment: 0 for population variance, 1 for sample variance
+    if (n_adjustment != 0 && n_adjustment != 1) {
+        assert(false);
+        throw parse_error(parse_error::unexpected_error);
+    }
+
+    if (!list.size())
+        return std::numeric_limits<float_type>::infinity();
+
     float_type avg_val = get_as<float_type>(avg(list));
     float_type delta_sq_sum = 0;
     for (auto pval = list.begin(); pval != list.end(); ++pval) {
         auto d = get_as<float_type>(*pval) - avg_val;
         delta_sq_sum += d * d;
     }
-    return delta_sq_sum / (list.size() - 1);
+    return delta_sq_sum / (list.size() - n_adjustment);
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::variance(const list_type& list) -> val_type {
+    return variance(list, 1);
 }
 
 template <typename CharT>
 auto calc_parser<CharT>::stddev(const list_type& list) -> val_type {
-    return sqrt(get_as<float_type>(variance(list)));
+    return sqrt(variance(list, 1));
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::median(const list_type& list) -> val_type {
+auto calc_parser<CharT>::pvariance(const list_type& list) -> val_type {
+    return variance(list, 0);
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::pstddev(const list_type& list) -> val_type {
+    return sqrt(variance(list, 0));
+}
+
+template <typename CharT>
+inline auto calc_parser<CharT>::quantile(const list_type& list, float_type percent) -> val_type {
+    // precondition: (0 <= percent <= 1)
+    assert(percent >= 0);
+    assert(percent <= 1);
+    if (percent < 0 || percent > 1)
+        throw parse_error(parse_error::unexpected_error);
+
+    if (!list.size())
+        return list_type();
+    if (list.size() == 1)
+        return get_as<float_type>(list.front());
+
     list_type list_;
     list_.reserve(list.size());
     for (auto& val: list)
         list_.emplace_back(get_as<float_type>(val));
     std::sort(list_.begin(), list_.end());
 
-    if (list_.size() % 2)
-        return get_as<float_type>(list_[list_.size() / 2]);
-    return (get_as<float_type>(list_[list_.size() / 2 - 1]) +
-        get_as<float_type>(list_[list_.size() / 2])) / 2.0;
+    float_type fidx = percent * (list_.size() + 1) - 1;
+    typename list_type::size_type idx = fidx; // truncated to integer
+    if (idx == list_.size()) // percent is 1 (not testing percent directly in case of rounding error)
+        return list_.back();
+
+    auto x0 = get_as<float_type>(list_[idx]);
+    auto x1 = get_as<float_type>(list_[idx + 1]);
+    float_type interpolation_factor = fidx - idx;
+    return x0 + interpolation_factor * (x1 - x0);
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::median(const list_type& list) -> val_type {
+    return quantile(list, 0.5);
 }
 
 template <typename CharT>
@@ -1004,6 +1066,52 @@ auto calc_parser<CharT>::mode(const list_type& list) -> val_type {
     if (list_.size() == 1)
         return list_.front();
     return list_;
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::min(const list_type& list) -> val_type {
+    if (!list.size())
+        return list_type();
+    auto min = get_as<float_type>(list.front());
+    for (auto itr = list.begin() + 1; itr != list.end(); ++itr) {
+        float_type item = get_as<float_type>(*itr);
+        if (item < min)
+            min = item;
+    }
+    return min;
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::max(const list_type& list) -> val_type {
+    if (!list.size())
+        return list_type();
+    float_type max = get_as<float_type>(list.front());
+    for (auto itr = list.begin() + 1; itr != list.end(); ++itr) {
+        float_type item = get_as<float_type>(*itr);
+        if (item > max)
+            max = item;
+    }
+    return max;
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::quartile1(const list_type& list) -> val_type {
+    return quantile(list, 0.25);
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::quartile2(const list_type& list) -> val_type {
+    return quantile(list, 0.5); // equivalent to median
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::quartile3(const list_type& list) -> val_type {
+    return quantile(list, 0.75);
+}
+
+template <typename CharT>
+auto calc_parser<CharT>::iqr(const list_type& list) -> val_type {
+    return get_as<float_type>(quantile(list, 0.75)) - get_as<float_type>(quantile(list,0.25));
 }
 
 #endif // CALC_PARSER_H
