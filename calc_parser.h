@@ -89,7 +89,7 @@ public:
             // elements correspond with error_codes enums so enum can be used as index
             "- no_error", "- lexer error", "- syntax error", "- number expected",
             "is undefined", "was expected",
-            "- numeric operand expected", "- numeric operands expected",
+            "- non-numeric operand was given", "- non-numeric operand was given",
             "- integer operand expected", "- integer operands expected",
             "- negative shift value is invalid", "- division by 0", "- unexpected error",
             "- nested list at left is invalid", "- unexpected end of input"};
@@ -1001,6 +1001,8 @@ auto calc_parser<CharT>::mode(const list_type& list) -> val_type {
         else
             list_.erase(list_.begin() + list_idx);
     
+    if (list_.size() == 1)
+        return list_.front();
     return list_;
 }
 
