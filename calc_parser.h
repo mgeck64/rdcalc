@@ -1014,7 +1014,7 @@ inline auto calc_parser<CharT>::quantile(const list_type& list, float_type perce
         throw parse_error(parse_error::unexpected_error);
 
     if (!list.size())
-        return list_type();
+        return std::numeric_limits<float_type>::quiet_NaN();
     if (list.size() == 1)
         return get_as<float_type>(list.front());
 
@@ -1025,10 +1025,11 @@ inline auto calc_parser<CharT>::quantile(const list_type& list, float_type perce
     std::sort(list_.begin(), list_.end());
 
     float_type fidx = percent * (list_.size() + 1) - 1;
-    auto idx = static_cast<typename list_type::size_type>(fidx); // truncated to integer
-    if (idx == list_.size()) // percent is 1 (not testing percent directly in case of rounding error)
+    auto idx = static_cast<typename list_type::size_type>(fidx); // truncate to integer
+    if (idx == list_.size()) // percent is 1 (not testing percent directly in case of precision error)
         return list_.back();
 
+    assert(list_.size() > 1);
     auto x0 = get_as<float_type>(list_[idx]);
     auto x1 = get_as<float_type>(list_[idx + 1]);
     float_type interpolation_factor = fidx - idx;
@@ -1042,8 +1043,8 @@ auto calc_parser<CharT>::median(const list_type& list) -> val_type {
 
 template <typename CharT>
 auto calc_parser<CharT>::mode(const list_type& list) -> val_type {
-    if (list.size() < 2)
-        return list_type();
+    if (list.size() < 2) // no possible modes, also for assumption below
+        return list_type(); // want to return empty list rather than nan here
 
     list_type list_;
     list_.reserve(list.size());
@@ -1057,10 +1058,11 @@ auto calc_parser<CharT>::mode(const list_type& list) -> val_type {
     int_type high_count = 2; // 2 to exclude modes that would be just a single item
 
     int_type count = 1;
-    for (int_type idx = 1; idx <= list_.size(); ++idx) {// note: min. size of list_ is 2
+    assert(list_.size() > 1);
+    for (int_type idx = 1; idx <= list_.size(); ++idx) {
         counts.emplace_back(count);
         if (idx < list_.size() && list_[idx - 1] == list_[idx])
-            ++count;
+            ++count; // will be added to counts on next iteration
         else {
             if (count > high_count)
                 high_count = count;
@@ -1084,7 +1086,7 @@ auto calc_parser<CharT>::mode(const list_type& list) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::min(const list_type& list) -> val_type {
     if (!list.size())
-        return list_type();
+        return std::numeric_limits<float_type>::quiet_NaN();
     auto min = get_as<float_type>(list.front());
     for (auto itr = list.begin() + 1; itr != list.end(); ++itr) {
         float_type item = get_as<float_type>(*itr);
@@ -1097,7 +1099,7 @@ auto calc_parser<CharT>::min(const list_type& list) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::max(const list_type& list) -> val_type {
     if (!list.size())
-        return list_type();
+        return std::numeric_limits<float_type>::quiet_NaN();
     float_type max = get_as<float_type>(list.front());
     for (auto itr = list.begin() + 1; itr != list.end(); ++itr) {
         float_type item = get_as<float_type>(*itr);
@@ -1130,7 +1132,7 @@ auto calc_parser<CharT>::iqr(const list_type& list) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::range(const list_type& list) -> val_type {
     if (!list.size())
-        return list_type();
+        return std::numeric_limits<float_type>::quiet_NaN();
     float_type max = get_as<float_type>(list.front());
     float_type min = get_as<float_type>(list.front());
     for (auto itr = list.begin() + 1; itr != list.end(); ++itr) {
