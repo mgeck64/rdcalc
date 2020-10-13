@@ -90,7 +90,7 @@ inline auto calc_outputter<CharT>::output_oct(ostream& out, const val_type& val_
 template <typename CharT>
 auto calc_outputter<CharT>::output_dec(ostream& out, const val_type& val_var) -> ostream& {
 	stream_state_restorer restorer(out);
-	out.precision(15);
+	out.precision(std::numeric_limits<float_type>::digits10);
 	return std::visit([&](auto val) -> ostream& {
 		if constexpr (std::is_same_v<decltype(val), float_type>)
 			return out << std::defaultfloat << val;
