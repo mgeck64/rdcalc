@@ -926,7 +926,7 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 20> cal
 template <typename CharT>
 auto calc_parser<CharT>::sum(const list_type& list) -> val_type {
     float_type val = 0;
-    for (auto list_val : list)
+    for (auto& list_val : list)
         val += get_as<float_type>(list_val);
     return val;
 }
@@ -936,7 +936,7 @@ auto calc_parser<CharT>::prod(const list_type& list) -> val_type {
     float_type val = 1;
         // note: product of empty list (empty set) is 1; see
         // https://en.wikipedia.org/wiki/Empty_product
-    for (auto list_val : list)
+    for (auto& list_val : list)
         val *= get_as<float_type>(list_val);
     return val;
 }
@@ -944,7 +944,7 @@ auto calc_parser<CharT>::prod(const list_type& list) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::avg(const list_type& list) -> val_type {
     float_type val = 0;
-    for (auto list_val : list)
+    for (auto& list_val : list)
         val += get_as<float_type>(list_val);
     return val / list.size();
 }
@@ -952,7 +952,7 @@ auto calc_parser<CharT>::avg(const list_type& list) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::geomean(const list_type& list) -> val_type {
     float_type val = 1;
-    for (auto list_val : list)
+    for (auto& list_val : list)
         val *= get_as<float_type>(list_val);
     return pow(val, 1.0 / list.size());
 }
@@ -960,7 +960,7 @@ auto calc_parser<CharT>::geomean(const list_type& list) -> val_type {
 template <typename CharT>
 auto calc_parser<CharT>::harmmean(const list_type& list) -> val_type {
     float_type val = 0;
-    for (auto list_val : list)
+    for (auto& list_val : list)
         val += 1.0 / get_as<float_type>(list_val);
     return list.size() / val;
 }
@@ -1024,7 +1024,7 @@ inline auto calc_parser<CharT>::quantile(const list_type& list, float_type perce
         list_.emplace_back(get_as<float_type>(val));
     std::sort(list_.begin(), list_.end());
 
-    float_type fidx = percent * (list_.size() + 1) - 1;
+    float_type fidx = percent * static_cast<float_type>(list_.size() + 1) - 1;
     auto idx = static_cast<typename list_type::size_type>(fidx); // truncate to integer
     if (idx == list_.size()) // percent is 1 (not testing percent directly in case of precision error)
         return list_.back();
@@ -1149,7 +1149,7 @@ template <typename CharT>
 auto calc_parser<CharT>::mad(const list_type& list) -> val_type {
     auto mean = get_as<float_type>(avg(list));
     float_type sum = 0;
-    for (auto list_val : list)
+    for (auto& list_val : list)
         sum += fabs(get_as<float_type>(list_val) - mean);
     return sum / list.size(); // inf for empty list
 }
