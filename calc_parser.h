@@ -717,7 +717,7 @@ auto calc_parser<CharT>::factor(lookahead& lexer) -> val_type {
             if constexpr (std::is_floating_point_v<VT> || std::is_signed_v<VT>)
                 return static_cast<VT>(-val);
             else if constexpr (std::is_unsigned_v<VT>) // (note: MSVC++ doesn't like negating unsigned type)
-                return val;
+                return static_cast<VT>(-static_cast<std::make_signed_t<VT>>(val));
             else
                 throw parse_error(parse_error::num_operand_expected, op_tok);
         }, val_num);
@@ -1024,7 +1024,7 @@ inline auto calc_parser<CharT>::quantile(const list_type& list, float_type perce
         list_.emplace_back(get_as<float_type>(val));
     std::sort(list_.begin(), list_.end());
 
-    float_type fidx = percent * static_cast<float_type>(list_.size() + 1) - 1;
+    float_type fidx = percent * static_cast<float_type>(list_.size() + 1) - 1.0f;
     auto idx = static_cast<typename list_type::size_type>(fidx); // truncate to integer
     if (idx == list_.size()) // percent is 1 (not testing percent directly in case of precision error)
         return list_.back();
