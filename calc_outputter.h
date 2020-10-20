@@ -270,7 +270,7 @@ auto calc_outputter<CharT>::output(OutValFn out_val_fn, ostream& out, const type
 	else 
 		for (auto itr = list.begin(); itr != list.end(); ++itr) {
 			if (itr != list.begin())
-				out << ',';
+				out << ", ";
 			out_val_fn(out, *itr);
 		}
 	return out;
