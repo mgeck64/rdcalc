@@ -225,7 +225,7 @@ private:
     // simple linear search will be adequate
 
     using list_fn = val_type (*)(const list_type&);
-    static std::array<std::pair<const char*, list_fn>, 20> list_fn_table;
+    static std::array<std::pair<const char*, list_fn>, 21> list_fn_table;
     // list_fn_table: simple unordered array; expected to be small enough that
     // simple linear search will be adequate
 
@@ -243,7 +243,7 @@ private:
     static auto stddev(const list_type& list) -> val_type;
     static auto pvariance(const list_type& list) -> val_type;
     static auto pstddev(const list_type& list) -> val_type;
-    static auto quantile(const list_type& list, float_type percent) -> val_type;
+    static auto quantile(const list_type& list, float_type percent) -> float_type;
     static auto median(const list_type& list) -> val_type;
     static auto mode(const list_type& list) -> val_type;
     static auto min(const list_type& list) -> val_type;
@@ -253,7 +253,8 @@ private:
     static auto quartile3(const list_type& list) -> val_type;
     static auto iqr(const list_type& list) -> val_type;
     static auto range(const list_type& list) -> val_type;
-    static auto mad(const list_type& list) -> val_type;
+    static auto madmean(const list_type& list) -> val_type;
+    static auto madmed(const list_type& list) -> val_type;
     static auto qdev(const list_type& list) -> val_type;
 
     static constexpr auto pi = 3.14159265358979323846;
@@ -900,7 +901,7 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::unary_fn>, 20> ca
 }};
 
 template <typename CharT>
-std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 20> calc_parser<CharT>::list_fn_table = {{
+std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 21> calc_parser<CharT>::list_fn_table = {{
     {"sum", sum},
     {"prod", prod},
     {"avg", avg},
@@ -919,7 +920,8 @@ std::array<std::pair<const char*, typename calc_parser<CharT>::list_fn>, 20> cal
     {"quartile3", quartile3},
     {"iqr", iqr},
     {"range", range},
-    {"mad", mad},
+    {"madmean", madmean},
+    {"madmed", madmed},
     {"qdev", qdev}
 }};
 
@@ -976,13 +978,17 @@ inline auto calc_parser<CharT>::variance(const list_type& list, typename list_ty
     if (!list.size())
         return std::numeric_limits<float_type>::infinity();
 
-    float_type avg_val = get_as<float_type>(avg(list));
-    float_type delta_sq_sum = 0;
-    for (auto pval = list.begin(); pval != list.end(); ++pval) {
-        auto d = get_as<float_type>(*pval) - avg_val;
-        delta_sq_sum += d * d;
+    // Welford's online method:
+    float_type mean = 0;
+    float_type sum = 0;
+    list_type::size_type i = 1;
+    for (auto pval = list.begin(); pval != list.end(); ++pval, ++i) {
+        auto x = get_as<float_type>(*pval);
+        auto delta = (x - mean);
+        mean += delta / i;
+        sum += delta * (x - mean);
     }
-    return delta_sq_sum / (list.size() - n_adjustment);
+    return sum / (list.size() - n_adjustment);
 }
 
 template <typename CharT>
@@ -1006,7 +1012,7 @@ auto calc_parser<CharT>::pstddev(const list_type& list) -> val_type {
 }
 
 template <typename CharT>
-inline auto calc_parser<CharT>::quantile(const list_type& list, float_type percent) -> val_type {
+inline auto calc_parser<CharT>::quantile(const list_type& list, float_type percent) -> float_type {
     // precondition: (0 <= percent <= 1)
     assert(percent >= 0);
     assert(percent <= 1);
@@ -1027,7 +1033,7 @@ inline auto calc_parser<CharT>::quantile(const list_type& list, float_type perce
     float_type fidx = percent * static_cast<float_type>(list_.size() + 1) - 1.0f;
     auto idx = static_cast<typename list_type::size_type>(fidx); // truncate to integer
     if (idx == list_.size()) // percent is 1 (not testing percent directly in case of precision error)
-        return list_.back();
+        return get_as<float_type>(list_.back());
 
     assert(list_.size() > 1);
     auto x0 = get_as<float_type>(list_[idx]);
@@ -1126,7 +1132,7 @@ auto calc_parser<CharT>::quartile3(const list_type& list) -> val_type {
 
 template <typename CharT>
 auto calc_parser<CharT>::iqr(const list_type& list) -> val_type {
-    return get_as<float_type>(quantile(list, 0.75)) - get_as<float_type>(quantile(list,0.25));
+    return quantile(list, 0.75) - quantile(list,0.25);
 }
 
 template <typename CharT>
@@ -1146,7 +1152,7 @@ auto calc_parser<CharT>::range(const list_type& list) -> val_type {
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::mad(const list_type& list) -> val_type {
+auto calc_parser<CharT>::madmean(const list_type& list) -> val_type {
     auto mean = get_as<float_type>(avg(list));
     float_type sum = 0;
     for (auto& list_val : list)
@@ -1155,8 +1161,18 @@ auto calc_parser<CharT>::mad(const list_type& list) -> val_type {
 }
 
 template <typename CharT>
+auto calc_parser<CharT>::madmed(const list_type& list) -> val_type {
+    auto med = get_as<float_type>(median(list));
+    list_type list_;
+    list_.reserve(list.size());
+    for (auto& list_val : list)
+        list_.emplace_back(fabs(get_as<float_type>(list_val) - med));
+    return median(list_);
+}
+
+template <typename CharT>
 auto calc_parser<CharT>::qdev(const list_type& list) -> val_type {
-    return (get_as<float_type>(quartile3(list)) - get_as<float_type>(quartile1(list))) / 2;
+    return (quantile(list, 0.75) - quantile(list, 0.25)) / 2;
 }
 
 #endif // CALC_PARSER_H
