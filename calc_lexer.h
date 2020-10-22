@@ -120,7 +120,7 @@ inline auto calc_lexer<CharT>::make_token(token_ids id, const CharT* tok_begin, 
 
 template <typename CharT>
 auto calc_lexer<CharT>::get_tok() -> token {
-    while (isspace(*in_pos)) // eat whitespace
+    while (char_helper::isspace(*in_pos)) // eat whitespace
         ++in_pos;
 
     if (char_helper::isalpha(*in_pos) || *in_pos == '_') { // identifier
