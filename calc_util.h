@@ -4,7 +4,7 @@
 #include <limits>
 #include <type_traits>
 
-namespace calc_util {
+namespace tpcalc {
 
 // almost_equal:
 
@@ -35,6 +35,6 @@ resetter<T> make_resetter(T& var, const T& value) {
     return resetter<T>(var, value);
 }
 
-}
+} // namespace tpcalc
 
 #endif // CALC_UTIL_H
