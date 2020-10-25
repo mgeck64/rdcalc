@@ -1,3 +1,3 @@
 #include "calc_outputter.h"
 
-// empty for now; serves to allow calc_outputter.h to be independently compiled
+// empty for now; serves to allow outputter.h to be independently compiled
