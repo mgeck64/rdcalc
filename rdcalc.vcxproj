@@ -154,11 +154,14 @@
     <ClCompile Include="test.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="parser_basics.h" />
     <ClInclude Include="calc_lexer.h" />
     <ClInclude Include="calc_outputter.h" />
     <ClInclude Include="calc_parser.h" />
     <ClInclude Include="calc_util.h" />
+    <ClInclude Include="parser_list_type.h" />
     <ClInclude Include="char_helper.h" />
+    <ClInclude Include="parser_val_type.h" />
     <ClInclude Include="stream_state_restorer.h" />
     <ClInclude Include="ieee_double.h" />
     <ClInclude Include="lookahead.h" />
