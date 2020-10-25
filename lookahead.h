@@ -16,17 +16,17 @@ public:
     using token = token<CharT>;
     using token_ids = typename token::token_ids;
     using radices = typename token::radices;
-    using exception = exception<CharT>;
+    using parse_error = parse_error<CharT>;
 
     lookahead_lexer(const CharT* input, const radices& default_radix) :
         lexer{input, default_radix} {}
     lookahead_lexer() = default;
 
-    auto get_tok() -> const token&; // consume a token; throws exception if token has error
+    auto get_tok() -> const token&; // consume a token; throws parse_error if token has error
     auto cached_tok() const -> const token& {return cached_tok_;}
 
     auto get_expected_tok(token_ids id) -> const token&;
-    // calls get_tok() to consume a token; throws exception if id doesn't
+    // calls get_tok() to consume a token; throws parse_error if id doesn't
     // match consumed token's id
 
     auto peek_tok() -> const token&; // peek at but don't consume token
@@ -74,14 +74,14 @@ inline auto lookahead_lexer<CharT>::get_tok() -> const token& {
         }
     }
     if (cached_tok_.error != token::no_error)
-        throw exception(exception::lexer_error, cached_tok_);
+        throw parse_error(parse_error::lexer_error, cached_tok_);
     return cached_tok_;
 }
 
 template <typename CharT>
 inline auto lookahead_lexer<CharT>::get_expected_tok(token_ids id) -> const token& {
     if (get_tok().id != id)
-        throw exception(exception::tok_expected, cached_tok_, id);
+        throw parse_error(parse_error::tok_expected, cached_tok_, id);
     return cached_tok_;
 }
 
