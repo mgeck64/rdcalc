@@ -2,12 +2,60 @@
 #ifndef PARSE_ERROR_H
 #define PARSE_ERROR_H
 
-// definitions for calc_parser::parse_error
+#include "calc_lexer.h"
 
-#include "calc_parser.h"
+namespace tpcalc {
 
 template <typename CharT>
-inline calc_parser<CharT>::parse_error::parse_error(error_codes error_, const token& tok_, token_ids expected_tok_)
+struct error_context {
+    using token = token<CharT>;
+    token tok; // warning: has string_view that may be bound to the input string or may be unbound default string view
+};
+
+template <typename CharT>
+struct parse_error {
+    using token = ::tpcalc::token<CharT>;
+    using token_ids = typename token::token_ids;
+    using string_view = std::basic_string_view<CharT>;
+    using string = std::basic_string<CharT>;
+    using error_context = error_context<CharT>;
+
+    enum error_codes {
+        no_error, lexer_error, syntax_error, number_expected,
+        undefined_identifier, tok_expected,
+        num_operand_expected, num_operands_expected,
+        int_operand_expected, int_operands_expected,
+        negative_shift_invalid, division_by_0, unexpected_error,
+        list_at_left_invalid_here, unexpected_end_of_input};
+    static constexpr auto error_txt = std::array{
+        // elements correspond with error_codes enums so enum can be used as index
+        "- no_error", "- lexer error", "- syntax error", "- number expected",
+        "is undefined", "was expected",
+        "- non-numeric operand was given", "- non-numeric operand was given",
+        "- integer operand expected", "- integer operands expected",
+        "- negative shift value is invalid", "- division by 0", "- unexpected error",
+        "- list at left is invalid here", "- unexpected end of input"};
+
+    error_codes error = no_error;
+    token tok; // warning: has string_view that may be bound to the input string or may be unbound default string view
+    string tok_str; // copy of tok.tok_str; can use safely instead of tok.tok_str
+    token_ids expected_tok = token::none; // valid for error == tok_expected
+    bool view_is_valid_for(const CharT* input) const; // is tok.tok_str bound to input?
+    auto error_str() const -> string;
+
+    parse_error(error_codes error_, const error_context& err_context);
+    parse_error(error_codes error_, const token& tok_ = {}, token_ids expected_tok_ = token::unspecified);
+};
+
+template <typename CharT>
+parse_error<CharT>::parse_error(error_codes error_, const error_context& err_context)
+    : error{error_}, tok{err_context.tok}, expected_tok{}, tok_str{err_context.tok.tok_str}
+{
+    assert(expected_tok == token::unspecified || error == tok_expected);
+}
+
+template <typename CharT>
+inline parse_error<CharT>::parse_error(error_codes error_, const token& tok_, token_ids expected_tok_)
 // expected_tok != token::unspecified is only valid for error == tok_expected
     : error{error_}, tok{tok_}, expected_tok{expected_tok_}, tok_str{tok_.tok_str}
 {
@@ -15,13 +63,13 @@ inline calc_parser<CharT>::parse_error::parse_error(error_codes error_, const to
 }
 
 template <typename CharT>
-inline bool calc_parser<CharT>::parse_error::view_is_valid_for(const CharT* input) const {
+inline bool parse_error<CharT>::view_is_valid_for(const CharT* input) const {
     return (tok.tok_str.data() >= input)
         && (tok.tok_str.data() + tok.tok_str.size() <= input + char_helper::strlen(input));
 }
 
 template <typename CharT>
-auto calc_parser<CharT>::parse_error::error_str() const -> string {
+auto parse_error<CharT>::error_str() const -> string {
     string error_str_buf;
     error_str_buf.reserve(64); // initial capacity to mitigate memory reallocations
 
@@ -67,5 +115,7 @@ auto calc_parser<CharT>::parse_error::error_str() const -> string {
 
     return error_str_buf;
 }
+
+} // namespace tpcalc
 
 #endif // PARSE_ERROR_H
