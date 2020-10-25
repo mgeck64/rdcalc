@@ -4,6 +4,8 @@
 
 #include <ios>
 
+namespace tpcalc {
+
 class stream_state_restorer {
 	std::ios_base& stream;
 	std::ios_base::fmtflags flags;
@@ -21,5 +23,7 @@ public:
 		stream.precision(precision);
 	}
 };
+
+} // namespace tpcalc
 
 #endif // TEMP_STREAM_STATE_H
