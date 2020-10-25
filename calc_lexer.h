@@ -12,14 +12,16 @@
 #include <climits>
 #include "char_helper.h"
 
-// calc_lexer is the tokenizer (lexical analyzer) for the parser calc_parser
+// tpcalc::lexer is the tokenizer for tpcalc::parser
+
+namespace tpcalc {
 
 using namespace std::literals;
 
 template <typename CharT>  // CharT: char or wchar_t
 struct token {
-// contains information about a token scanned by calc_lexer; created by
-// calc_lexer and used by calc_parser
+// contains information about a token scanned by lexer; created by lexer and
+// used by parser
     using string_view = std::basic_string_view<CharT>;
 
     enum token_ids {unspecified, end, number, identifier, add, sub, mul, div,
@@ -34,15 +36,15 @@ struct token {
     token_ids id = unspecified;
 
     using int_type = std::uint64_t;
-    // calc_lexer will scan integers as unsigned type. this is to allow for
-    // literals such as 0xffffffffffffffff, but also because '-' is treated as
-    // it's own token and not part of literal value. consequently,
-    // 18446744073709551615 is a valid integer here and is equivalent to -1.
+    // lexer will scan integers as unsigned type. this is to allow for literals
+    // such as 0xffffffffffffffff, but also because '-' is treated as it's own
+    // token and not part of literal value. consequently, 18446744073709551615
+    // is a valid integer here and is equivalent to -1.
 
     using float_type = double;
     using num_type = std::variant<float_type, int_type>;
     num_type num_val = float_type();
-
+ 
     enum radices : unsigned char {decimal = 0, base2 = 2, base8 = 8, base10 = 10, base16 = 16};
 
     string_view tok_str = {}; // view of scanned token in input string, or default constructed view
@@ -60,7 +62,7 @@ struct token {
 };
 
 template <typename CharT> // CharT: char or wchar_t
-class calc_lexer {
+class lexer {
 public:
     using token = token<CharT>;
     using string_view = typename token::string_view;
@@ -74,7 +76,7 @@ public:
 
     radices default_radix = decimal;
 
-    calc_lexer(const CharT* input, radices default_radix);
+    lexer(const CharT* input, radices default_radix);
     // input: assumed to point to a null-terminated (c-style) string. if input
     // is null then throws std::invalid_argument. stores the pointer (and not a
     // copy of the string), thus has pointer invalidation rule. string_view was
@@ -82,7 +84,7 @@ public:
     // and implementation considerations.
     // default_radix: default radix (number base) for numbers.
 
-    calc_lexer() = default;
+    lexer() = default;
 
     auto get_tok() -> token;
 
@@ -102,16 +104,16 @@ private:
 };
 
 template <typename CharT>
-inline calc_lexer<CharT>::calc_lexer(const CharT* input, radices default_radix_) :
+inline lexer<CharT>::lexer(const CharT* input, radices default_radix_) :
     in_begin{input}, in_pos{input}, default_radix{default_radix_}
 {
     assert(input);
     if (!input)
-        throw std::invalid_argument("calc_lexer::calc_lexer: null pointer");
+        throw std::invalid_argument("lexer::lexer: null pointer");
 }
 
 template <typename CharT>
-inline auto calc_lexer<CharT>::make_token(token_ids id, const CharT* tok_begin, const CharT* tok_end, error_codes error, num_type num_val) -> token {
+inline auto lexer<CharT>::make_token(token_ids id, const CharT* tok_begin, const CharT* tok_end, error_codes error, num_type num_val) -> token {
     assert(tok_begin >= in_begin);
     assert(tok_end <= in_begin + char_helper::strlen(in_begin));
     auto tok_len = static_cast<typename token::string_view::size_type>(tok_end - tok_begin);
@@ -119,7 +121,7 @@ inline auto calc_lexer<CharT>::make_token(token_ids id, const CharT* tok_begin, 
 }
 
 template <typename CharT>
-auto calc_lexer<CharT>::get_tok() -> token {
+auto lexer<CharT>::get_tok() -> token {
     while (char_helper::isspace(*in_pos)) // eat whitespace
         ++in_pos;
 
@@ -248,7 +250,7 @@ auto calc_lexer<CharT>::get_tok() -> token {
 }
 
 template <typename CharT>
-auto calc_lexer<CharT>::scan_as_number() noexcept -> scan_result {
+auto lexer<CharT>::scan_as_number() noexcept -> scan_result {
     num_buf.clear(); // we assume num_buf grows efficiently
 
     radices radix = default_radix;
@@ -382,7 +384,7 @@ auto calc_lexer<CharT>::scan_as_number() noexcept -> scan_result {
 }
 
 template <typename CharT>
-auto calc_lexer<CharT>::scan_helper_int(const CharT* in_pos, unsigned radix) noexcept -> scan_result {
+auto lexer<CharT>::scan_helper_int(const CharT* in_pos, unsigned radix) noexcept -> scan_result {
 // in_pos: position to begin scanning at.
 // radix: number base (e.g., binary = 2, octal = 8, decimal = 10, hexadecimal = 16).
     assert(radix && radix <= 36); // 0-9 + a-z
@@ -404,7 +406,7 @@ auto calc_lexer<CharT>::scan_helper_int(const CharT* in_pos, unsigned radix) noe
 }
 
 template <typename CharT>
-auto calc_lexer<CharT>::scan_helper_float(const CharT* in_pos) noexcept -> scan_result {
+auto lexer<CharT>::scan_helper_float(const CharT* in_pos) noexcept -> scan_result {
     errno = 0; // global (thread-local) error code set by strtod!; must initialize!
     auto dbl_val = char_helper::strtod(in_pos, in_pos);
     auto error = error_codes::no_error;
@@ -419,5 +421,7 @@ auto calc_lexer<CharT>::scan_helper_float(const CharT* in_pos) noexcept -> scan_
         error = error_codes::invalid_number;
     return {dbl_val, error};
 }
+
+} // namespace tpcalc
 
 #endif // CALC_LEXER_H
