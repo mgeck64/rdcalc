@@ -9,7 +9,7 @@
 
 namespace char_helper {
 
-// char
+// for type char
 
 inline bool isspace(char c) {return ::isspace(c);}
 inline bool isdigit(char c) {return ::isdigit(c);}
@@ -24,7 +24,7 @@ inline size_t strlen(const char* str) {return ::strlen(str);}
 inline void append_to(std::string& dst, std::string_view src) {dst += src;}
 inline bool eq(std::string_view l, const char* r) {return l == r;}
 
-// wchar_t
+// for type wchar_t
 
 inline bool isspace(wchar_t c) {return ::iswspace(c);}
 inline bool isdigit(wchar_t c) {return ::iswdigit(c);}
