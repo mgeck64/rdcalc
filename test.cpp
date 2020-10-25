@@ -4,14 +4,15 @@
 
 int main() {
     using namespace std;
-    using parser_t = calc_parser<char>;
+    using parser_type = tpcalc::parser<char>;
+    using parse_error = tpcalc::parse_error<char>;
 
-    parser_t parser;
+    parser_type parser;
     vector<char> line_buf; // use vector for input line buffer for its memory efficiency
     line_buf.reserve(64); // initial capacity to mitigate memory reallocations
     cout.precision(15);
 
-    calc_outputter<char> outputter{parser.default_radix()};
+    tpcalc::outputter<char> outputter{parser.default_radix()};
 
     for (;; line_buf.clear()) {
         for (char c; cin.get(c) && c != '\n';)
@@ -22,7 +23,7 @@ int main() {
             if (!parser.eval(line_buf.data()))
                 break;
             cout << outputter(parser.last_val()) << endl;
-        } catch (const parser_t::parse_error& e) {
+        } catch (const parse_error& e) {
             cout << e.error_str() << endl;
             if (e.view_is_valid_for(line_buf.data())) {
                 cout << line_buf.data() << endl;
