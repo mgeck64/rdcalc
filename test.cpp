@@ -21,7 +21,7 @@ int main() {
         line_buf.emplace_back(0); // null terminator
 
         try {
-            if (!parser.eval(line_buf.data()))
+            if (!parser.evaluate(line_buf.data()))
                 break;
             cout << outputter(parser.last_val()) << endl;
         } catch (const parse_error& e) {

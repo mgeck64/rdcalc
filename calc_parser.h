@@ -45,7 +45,7 @@ public:
     auto default_radix() -> radices {return default_radix_;}
     auto default_radix(radices default_radix) -> void {default_radix_ = default_radix;}
 
-    auto eval(const CharT* input) -> bool;
+    auto evaluate(const CharT* input) -> bool;
     // evaluates the input string; throws parse_error on parsing error. input is
     // as specified for lexer. uses a lexer object to which input is assigned
     // (see); the lexer object persists only for duration of this function call.
@@ -76,10 +76,10 @@ private:
     // token::tok_str
 
     var_keys_type var_keys;
-    // keys need to persist between eval() calls so copies will be stored here;
-    // keys in vars_ will be views of strings stored here. variable::key_pos
-    // points to corresponding entry here so it can be deleted when entry in
-    // vars_ is deleted
+    // keys need to persist between evaluate() calls so copies will be stored
+    // here; keys in vars_ will be views of strings stored here.
+    // variable::key_pos points to corresponding entry here so it can be deleted
+    // when entry in vars_ is deleted
 
     // a crucial reason vars_ and var_keys are map/multiset respectively is
     // because iterators need to remain valid after changes are made to the
@@ -303,7 +303,7 @@ inline bool parser<CharT>::identifiers_match(string_view inp_symb, const char* t
 }
 
 template <typename CharT>
-auto parser<CharT>::eval(const CharT* input) -> bool {
+auto parser<CharT>::evaluate(const CharT* input) -> bool {
     lookahead_lexer lexer = {input, default_radix_};
     if (lexer.peek_tok().id == token::end) {
         last_val_ = 0.0;
