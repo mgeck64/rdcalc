@@ -216,13 +216,11 @@ auto parser<CharT>::get_as(const parser_val_type& val_var) -> T {
         static_assert(std::is_same_v<list_type, std::variant_alternative_t<9, parser_val_type_base>>); // alternative 9 should be list_type
         if constexpr (std::is_same_v<T, list_type>)
             return std::get<T>(val_var);
-        else { // unsupported conversion to T; calling code should preclude this
-            assert(false);
-            throw parse_error(parse_error::unexpected_error, error_context{});
-        }
+        // else unsupported conversion to T; calling code should preclude this.
+        // fallthru to default
     default: // missed one
         assert(false);
-        throw parse_error(parse_error::unexpected_error, error_context{});
+        throw internal_error{"parser<CharT>::get_as (1)"};
     }
 }
 
@@ -244,7 +242,7 @@ auto parser<CharT>::get_as(const size_t& idx, const parser_val_type& val_var) ->
     case 9: val_var_ = get_as<list_type>(val_var); break;
     default: // missed one
         assert(false);
-        throw parse_error(parse_error::unexpected_error, error_context{});
+        throw internal_error{"parser<CharT>::get_as (2)"};
     }
     assert(idx == val_var_.index());
     return val_var_;
@@ -277,7 +275,7 @@ inline auto parser<CharT>::apply_promoted(const Fn& fn, const parser_val_type& l
     case 9: return fn(std::get<std::variant_alternative_t<9, parser_val_type_base>>(lval_var_), std::get<std::variant_alternative_t<9, parser_val_type_base>>(rval_var_));
     default: // missed one
         assert(false);
-        throw parse_error(parse_error::unexpected_error, error_context{});
+        throw internal_error{"parser<CharT>::apply_promoted"};
     }
 }
 
@@ -293,7 +291,7 @@ auto parser<CharT>::casted(const parser_val_type& val_var) const -> parser_val_t
             // elements of list; not doing so for now
         else { // missed one
             static_assert(false);
-            throw parse_error(parse_error::unexpected_error, error_context{});
+            throw internal_error{"parser<CharT>::casted"};
         }
     }, val_var);
 }
@@ -831,7 +829,7 @@ inline auto parser<CharT>::variance(const list_type& list, typename list_type::s
 // n_adjustment: 0 for population variance, 1 for sample variance
     if (n_adjustment != 0 && n_adjustment != 1) {
         assert(false);
-        throw parse_error(parse_error::unexpected_error, error_context{});
+        throw internal_error{"parser<CharT>::variance"};
     }
 
     if (!list.size())
@@ -876,7 +874,7 @@ inline auto parser<CharT>::quantile(const list_type& list, float_type percent) -
     assert(percent >= 0);
     assert(percent <= 1);
     if (percent < 0 || percent > 1)
-        throw parse_error(parse_error::unexpected_error, error_context{});
+        throw internal_error{"parser<CharT>::quantile"};
 
     if (!list.size())
         return std::numeric_limits<float_type>::quiet_NaN();

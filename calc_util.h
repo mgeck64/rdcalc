@@ -1,8 +1,11 @@
 #pragma once
 #ifndef CALC_UTIL_H
+#define CALC_UTIL_H
 
 #include <limits>
 #include <type_traits>
+#include <string>
+#include <cmath>
 
 namespace tpcalc {
 
@@ -34,6 +37,12 @@ template <typename T>
 resetter<T> make_resetter(T& var, const T& value) {
     return resetter<T>(var, value);
 }
+
+// internal_error:
+
+struct internal_error {
+    std::string str;
+};
 
 } // namespace tpcalc
 

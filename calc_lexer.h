@@ -5,12 +5,12 @@
 #include <variant>
 #include <array>
 #include <cassert>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <variant>
 #include <climits>
 #include "char_helper.h"
+#include "calc_util.h"
 
 // tpcalc::lexer is the tokenizer for tpcalc::parser
 
@@ -73,15 +73,17 @@ public:
     using radices = typename token::radices;
     using token_ids = typename token::token_ids;
     using error_codes = typename token::error_codes;
+    using internal_error = ::tpcalc::internal_error;
 
     radices default_radix = decimal;
 
     lexer(const CharT* input, radices default_radix);
     // input: assumed to point to a null-terminated (c-style) string. if input
-    // is null then throws std::invalid_argument. stores the pointer (and not a
-    // copy of the string), thus has pointer invalidation rule. string_view was
-    // considered for input's type but c-style string was chosen for performance
-    // and implementation considerations.
+    // is null then throws internal_error.
+    // this stores the pointer (and not a copy of the string), thus this has
+    // pointer invalidation rule. string_view was considered for input's type
+    // but c-style string was chosen for performance and implementation
+    // considerations.
     // default_radix: default radix (number base) for numbers.
 
     lexer() = default;
@@ -109,7 +111,7 @@ inline lexer<CharT>::lexer(const CharT* input, radices default_radix_) :
 {
     assert(input);
     if (!input)
-        throw std::invalid_argument("lexer::lexer: null pointer");
+        throw internal_error{"lexer<CharT>::lexer: null pointer"};
 }
 
 template <typename CharT>

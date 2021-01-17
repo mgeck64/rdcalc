@@ -6,6 +6,7 @@ int main() {
     using namespace std;
     using parser_type = tpcalc::parser<char>;
     using parse_error = tpcalc::parse_error<char>;
+    using internal_error = tpcalc::internal_error;
 
     parser_type parser;
     vector<char> line_buf; // use vector for input line buffer for its memory efficiency
@@ -31,6 +32,8 @@ int main() {
                     cout << '.';
                 cout << "^" << endl;
             }
+        } catch (const internal_error& e) {
+            cout << "Unexpected error in " << e.str << '.' << endl;
         }
     }
 }
