@@ -28,6 +28,49 @@ struct parser_val_type : parser_val_type_base {
     parser_val_type() = default;
 };
 
+
+struct add_op {
+    template <typename LT, typename RT, typename CharT>
+    auto operator()(LT lval, RT rval, const error_context<CharT>&) -> auto {
+        return lval + rval;
+    }
+};
+
+struct sub_op {
+    template <typename LT, typename RT, typename CharT>
+    auto operator()(LT lval, RT rval, const error_context<CharT>&) -> auto {
+        return lval - rval;
+    }
+};
+
+struct mul_op {
+    template <typename LT, typename RT, typename CharT>
+    auto operator()(LT lval, RT rval, const error_context<CharT>&) -> auto {
+        return lval * rval;
+    }
+};
+
+struct div_op {
+    template <typename LT, typename RT, typename CharT>
+    auto operator()(LT lval, RT rval, const error_context<CharT>& err_context) -> auto {
+        if constexpr (std::is_floating_point_v<LT> || std::is_floating_point_v<RT>)
+            return lval / rval; // let divide by 0 result in inf
+        else {
+            if (rval == 0)
+                throw parse_error<CharT>(parse_error<CharT>::division_by_0, err_context);
+            return lval / rval;
+        }
+    }
+};
+
+struct exp_op {
+    template <typename LT, typename RT, typename CharT>
+    auto operator()(LT lval, RT rval, const error_context<CharT>&) -> auto {
+        return pow(lval, rval);
+    }
+};
+
+
 template <typename LT, typename RT, typename Op, typename CharT>
 inline auto apply_op(Op op, const LT& lval, const RT& rval, const error_context<CharT>& err_context) {
     return op(lval, rval, err_context);
@@ -58,11 +101,12 @@ parser_num_type apply_op(Op op, const parser_num_type& lval_var, const parser_nu
 
 template <typename Op, typename CharT>
 list_type apply_op(Op op, const list_type& lv, const list_type& rv, const error_context<CharT>& err_context) {
-    auto min_size = std::min(lv.size(), rv.size());
-    auto lend = lv.begin() + min_size;
+    if (lv.size() != rv.size())
+        throw parse_error<CharT>(parse_error<CharT>::lists_must_be_same_size, err_context);
+    auto lend = lv.begin() + lv.size();
 	auto ritr = rv.begin();
     list_type v;
-    v.reserve(min_size);
+    v.reserve(lv.size());
 	for (auto litr = lv.begin(); litr != lend; ++litr, ++ritr)
         v.emplace_back(apply_op(op, *litr, *ritr, err_context));
     return v;
@@ -72,6 +116,32 @@ template <typename Op, typename CharT>
 parser_val_type apply_op(Op op, const parser_val_type& lval_var, const parser_val_type& rval_var, const error_context<CharT>& err_context) {
     return std::visit([&](const auto& lval, const auto& rval) -> parser_val_type {
         return apply_op(op, lval, rval, err_context);
+    }, lval_var, rval_var);
+}
+
+template <typename CharT>
+inline float_type dot_op(const list_type& lv, const list_type& rv, const error_context<CharT>& err_context) {
+    if (lv.size() != rv.size())
+        throw parse_error<CharT>(parse_error<CharT>::lists_must_be_same_size, err_context);
+    auto lend = lv.begin() + lv.size();
+	auto ritr = rv.begin();
+    float_type sum = 0;
+	for (auto litr = lv.begin(); litr != lend; ++litr, ++ritr)
+        sum += std::visit([&](auto lval, auto rval) -> float_type {
+            return lval * rval;
+        }, *litr, *ritr);
+    return sum;
+}
+
+template <typename CharT>
+float_type dot_op(const parser_val_type& lval_var, const parser_val_type& rval_var, const error_context<CharT>& err_context) {
+    return std::visit([&](const auto& lval, const auto& rval) -> float_type {
+        using LT = std::decay_t<decltype(lval)>;
+        using RT = std::decay_t<decltype(rval)>;
+        if constexpr (std::is_same_v<LT, list_type> && std::is_same_v<RT, list_type>)
+            return dot_op(lval, rval, err_context);
+        else
+            throw parse_error<CharT>(parse_error<CharT>::operands_must_be_lists, err_context);
     }, lval_var, rval_var);
 }
 

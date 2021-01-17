@@ -26,13 +26,13 @@ struct token {
 
     enum token_ids {unspecified, end, number, identifier, add, sub, mul, div,
         mod, pow, fac, dfac, lparen, rparen, eq, ashiftl, ashiftr, lshiftl,
-        lshiftr, band, bor, bxor, bnot, comma};
+        lshiftr, band, bor, bxor, bnot, comma, lsquare, rsquare, dot};
     static constexpr auto token_txt = std::array
         // text suitable for parser error message.
         // elements correspond with token_ids enums so enum can be used as index
         {"unspecified", "end", "number", "identifier", "\"+\"", "\"-\"", "\"*\"", "\"/\"",
         "\"%\"", "\"**\"","\"!\"", "\"!!\"", "\"(\"", "\")\"", "\"=\"", "\"<<\"", "\">>\"", "\"<<<\"",
-        "\">>>\"", "\"&\"", "\"|\"", "\"^\"", "\"~\"", "\",\""};
+        "\">>>\"", "\"&\"", "\"|\"", "\"^\"", "\"~\"", "\",\"", "\"[\"", "\"]\"", "\".\""};
     token_ids id = unspecified;
 
     using int_type = std::uint64_t;
@@ -177,6 +177,14 @@ auto lexer<CharT>::get_tok() -> token {
         ++in_pos;
         tok_id = token::rparen;
         break;
+    case '[':
+        ++in_pos;
+        tok_id = token::lsquare;
+        break;
+    case ']':
+        ++in_pos;
+        tok_id = token::rsquare;
+        break;
     case '=':
         ++in_pos;
         tok_id = token::eq;
@@ -236,6 +244,10 @@ auto lexer<CharT>::get_tok() -> token {
     case ',':
         ++in_pos;
         tok_id = token::comma;
+        break;
+    case '.':
+        ++in_pos;
+        tok_id = token::dot;
         break;
     case 0:
         tok_id = token::end;

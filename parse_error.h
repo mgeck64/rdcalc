@@ -26,7 +26,8 @@ struct parse_error {
         num_operand_expected, num_operands_expected,
         int_operand_expected, int_operands_expected,
         negative_shift_invalid, division_by_0, unexpected_error,
-        list_at_left_invalid_here, unexpected_end_of_input};
+        operands_must_be_lists, lists_must_be_same_size,
+        unexpected_end_of_input};
     static constexpr auto error_txt = std::array{
         // elements correspond with error_codes enums so enum can be used as index
         "- no_error", "- lexer error", "- syntax error", "- number expected",
@@ -34,7 +35,8 @@ struct parse_error {
         "- non-numeric operand was given", "- non-numeric operand was given",
         "- integer operand expected", "- integer operands expected",
         "- negative shift value is invalid", "- division by 0", "- unexpected error",
-        "- list at left is invalid here", "- unexpected end of input"};
+        "- both operands must be lists", "- lists must be the same size",
+        "- unexpected end of input"};
 
     error_codes error = no_error;
     token tok; // warning: has string_view that may be bound to the input string or may be unbound default string view
@@ -44,7 +46,7 @@ struct parse_error {
     auto error_str() const -> string;
 
     parse_error(error_codes error_, const error_context& err_context);
-    parse_error(error_codes error_, const token& tok_ = {}, token_ids expected_tok_ = token::unspecified);
+    parse_error(error_codes error_, const token& tok_, token_ids expected_tok_ = token::unspecified);
 };
 
 template <typename CharT>

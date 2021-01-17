@@ -124,9 +124,8 @@ private:
     auto factor(lookahead_lexer& lexer)-> parser_val_type;
     auto primary_expression(lookahead_lexer& lexer)-> parser_val_type;
     auto identifier(lookahead_lexer& lexer)-> parser_val_type;
-
-    enum class group_or_list_options {list_valid, list_invalid};
-    auto group_or_list(lookahead_lexer& lexer, group_or_list_options option = group_or_list_options::list_valid)-> parser_val_type;
+    auto group(lookahead_lexer& lexer) -> parser_val_type;
+    auto list(lookahead_lexer& lexer) -> list_type;
 
     using unary_fn = float_type (*)(float_type);
     static std::array<std::pair<const char*, unary_fn>, 20> unary_fn_table;
@@ -219,11 +218,11 @@ auto parser<CharT>::get_as(const parser_val_type& val_var) -> T {
             return std::get<T>(val_var);
         else { // unsupported conversion to T; calling code should preclude this
             assert(false);
-            throw parse_error(parse_error::unexpected_error);
+            throw parse_error(parse_error::unexpected_error, error_context{});
         }
     default: // missed one
         assert(false);
-        throw parse_error(parse_error::unexpected_error);
+        throw parse_error(parse_error::unexpected_error, error_context{});
     }
 }
 
@@ -245,7 +244,7 @@ auto parser<CharT>::get_as(const size_t& idx, const parser_val_type& val_var) ->
     case 9: val_var_ = get_as<list_type>(val_var); break;
     default: // missed one
         assert(false);
-        throw parse_error(parse_error::unexpected_error);
+        throw parse_error(parse_error::unexpected_error, error_context{});
     }
     assert(idx == val_var_.index());
     return val_var_;
@@ -278,7 +277,7 @@ inline auto parser<CharT>::apply_promoted(const Fn& fn, const parser_val_type& l
     case 9: return fn(std::get<std::variant_alternative_t<9, parser_val_type_base>>(lval_var_), std::get<std::variant_alternative_t<9, parser_val_type_base>>(rval_var_));
     default: // missed one
         assert(false);
-        throw parse_error(parse_error::unexpected_error);
+        throw parse_error(parse_error::unexpected_error, error_context{});
     }
 }
 
@@ -294,7 +293,7 @@ auto parser<CharT>::casted(const parser_val_type& val_var) const -> parser_val_t
             // elements of list; not doing so for now
         else { // missed one
             static_assert(false);
-            throw parse_error(parse_error::unexpected_error);
+            throw parse_error(parse_error::unexpected_error, error_context{});
         }
     }, val_var);
 }
@@ -312,9 +311,11 @@ auto parser<CharT>::eval(const CharT* input) -> bool {
         last_val_ = 0.0;
         return false;
     }
-    last_val_ = std::move(expression(lexer));
-    if (lexer.get_tok().id != token::end)
-        throw parse_error(parse_error::syntax_error, lexer.cached_tok());
+    do
+        last_val_ = std::move(expression(lexer));
+    while (lexer.peek_tok().id != token::end);
+    //if (lexer.get_tok().id != token::end)
+    //    throw parse_error(parse_error::syntax_error, lexer.cached_tok());
     return true;
 }
 
@@ -527,7 +528,7 @@ auto parser<CharT>::shift_term(lookahead_lexer& lexer) -> parser_val_type {
 
 template <typename CharT>
 auto parser<CharT>::term(lookahead_lexer& lexer) -> parser_val_type {
-// <term> ::= <factor> [ ( "*" | "/" | "%" ) <factor> ]...
+// <term> ::= <factor> [ ( "*" | "/" | "%" | "." ) <factor> ]...
     auto lval_num = std::move(factor(lexer));
     for (;;) {
         if (lexer.peek_tok().id == token::mul) {
@@ -552,6 +553,10 @@ auto parser<CharT>::term(lookahead_lexer& lexer) -> parser_val_type {
                 } else
                     throw parse_error(parse_error::int_operands_expected, op_tok);
             }, lval_num, rval_num);
+        } else if (lexer.peeked_tok().id == token::dot) {
+            auto op_tok = lexer.get_tok();
+            auto rval_num = std::move(factor(lexer));
+            lval_num = dot_op(lval_num, rval_num, error_context{op_tok});
         } else
             break;
     }
@@ -632,7 +637,9 @@ auto parser<CharT>::primary_expression(lookahead_lexer& lexer) -> parser_val_typ
     } else if (lexer.peeked_tok().id == token::identifier)
         lval = std::move(identifier(lexer));
     else if (lexer.peeked_tok().id == token::lparen)
-        lval = std::move(group_or_list(lexer));
+        lval = std::move(group(lexer));
+    else if (lexer.peeked_tok().id == token::lsquare)
+        lval = std::move(list(lexer));
     else if (lexer.peeked_tok().id == token::end)
         throw parse_error(parse_error::unexpected_end_of_input, lexer.peeked_tok());
     else
@@ -680,12 +687,12 @@ auto parser<CharT>::identifier(lookahead_lexer& lexer) -> parser_val_type {
     // <unary fn name>
     for (auto pos = unary_fn_table.begin(); pos != unary_fn_table.end(); ++pos)
         if (identifiers_match(lexer.cached_tok().tok_str, pos->first))
-            return pos->second(get_as<float_type>(group_or_list(lexer, group_or_list_options::list_invalid)));
+            return pos->second(get_as<float_type>(group(lexer)));
 
     // <list fn name>
     for (auto pos = list_fn_table.begin(); pos != list_fn_table.end(); ++pos)
         if (identifiers_match(lexer.cached_tok().tok_str, pos->first))
-            return pos->second(get_as<list_type>(group_or_list(lexer)));
+            return pos->second(list(lexer));
 
     // <internal value>
     if (identifiers_match(lexer.cached_tok().tok_str, "pi"))
@@ -699,41 +706,33 @@ auto parser<CharT>::identifier(lookahead_lexer& lexer) -> parser_val_type {
 };
 
 template <typename CharT>
-auto parser<CharT>::group_or_list(lookahead_lexer& lexer, group_or_list_options option) -> parser_val_type {
-// <group or list> ::= '(' <expression> [ ',' <expression> ]... ')'
-// expected_count: 0 is special value and means any count.
-    auto tok = lexer.get_expected_tok(token::lparen);
+auto parser<CharT>::group(lookahead_lexer& lexer) -> parser_val_type {
+// <group> ::= '(' <expression> ')'
+    lexer.get_expected_tok(token::lparen);
+    parser_val_type val = std::move(expression(lexer));
+    lexer.get_expected_tok(token::rparen);
+    return val;
+}
 
-    parser_val_type val;
+template <typename CharT>
+auto parser<CharT>::list(lookahead_lexer& lexer) -> list_type {
+// <list> ::= '[' <expression> [ ',' <expression> ]... ']'
+    auto tok = lexer.get_expected_tok(token::lsquare);
     list_type list;
-
-    auto convert = [&](const auto& val) -> parser_num_type {
-        if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
-            throw parse_error(parse_error::list_at_left_invalid_here, tok);
-        else
-            return val;
-    };
-
     for (;;) {
-        val = std::move(expression(lexer));
+        std::visit([&](const auto& val) {
+            if constexpr (std::is_same_v<std::decay_t<decltype(val)>, list_type>)
+                list.insert(list.end(), val.begin(), val.end());
+            else
+                list.emplace_back(val);
+        }, std::move(expression(lexer)));
         if (lexer.peek_tok().id != token::comma)
             break;
         tok = lexer.get_tok();
-        list.emplace_back(std::visit(convert, val));
     }
 
-    tok = lexer.get_expected_tok(token::rparen);
-
-    if (option == group_or_list_options::list_invalid &&
-            (list.size() || std::holds_alternative<list_type>(val)))
-        throw parse_error(parse_error::list_at_left_invalid_here, tok);
-
-    if (list.size()) {
-        list.emplace_back(std::visit(convert, val));
-        return list;
-    }
-
-    return val;
+    lexer.get_expected_tok(token::rsquare);
+    return list;
 }
 
 template <typename CharT>
@@ -832,7 +831,7 @@ inline auto parser<CharT>::variance(const list_type& list, typename list_type::s
 // n_adjustment: 0 for population variance, 1 for sample variance
     if (n_adjustment != 0 && n_adjustment != 1) {
         assert(false);
-        throw parse_error(parse_error::unexpected_error);
+        throw parse_error(parse_error::unexpected_error, error_context{});
     }
 
     if (!list.size())
@@ -877,7 +876,7 @@ inline auto parser<CharT>::quantile(const list_type& list, float_type percent) -
     assert(percent >= 0);
     assert(percent <= 1);
     if (percent < 0 || percent > 1)
-        throw parse_error(parse_error::unexpected_error);
+        throw parse_error(parse_error::unexpected_error, error_context{});
 
     if (!list.size())
         return std::numeric_limits<float_type>::quiet_NaN();
