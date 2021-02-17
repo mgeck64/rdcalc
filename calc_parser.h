@@ -554,7 +554,23 @@ auto parser<CharT>::term(lookahead_lexer& lexer) -> parser_val_type {
         } else if (lexer.peeked_tok().id == token::dot) {
             auto op_tok = lexer.get_tok();
             auto rval_num = std::move(factor(lexer));
-            lval_num = dot_op(lval_num, rval_num, error_context{op_tok});
+            lval_num = std::visit([&](const auto& lval, const auto& rval) -> float_type {
+                using LT = std::decay_t<decltype(lval)>;
+                using RT = std::decay_t<decltype(rval)>;
+                if constexpr (std::is_same_v<LT, list_type> && std::is_same_v<RT, list_type>) {
+                    if (lval.size() != rval.size())
+                        throw parse_error(parse_error::lists_must_be_same_size, op_tok);
+                    auto lend = lval.begin() + lval.size();
+	                auto ritr = rval.begin();
+                    float_type sum = 0;
+	                for (auto litr = lval.begin(); litr != lend; ++litr, ++ritr)
+                        sum += std::visit([](auto lval, auto rval) -> float_type { // note: apply_promoted doesn't work with parser_num_type
+                            return lval * rval;
+                        }, *litr, *ritr);
+                    return sum;
+                } else
+                    throw parse_error(parse_error::operands_must_be_lists, op_tok);
+            }, lval_num, rval_num);
         } else
             break;
     }

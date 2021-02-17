@@ -119,32 +119,6 @@ parser_val_type apply_op(Op op, const parser_val_type& lval_var, const parser_va
     }, lval_var, rval_var);
 }
 
-template <typename CharT>
-inline float_type dot_op(const list_type& lv, const list_type& rv, const error_context<CharT>& err_context) {
-    if (lv.size() != rv.size())
-        throw parse_error<CharT>(parse_error<CharT>::lists_must_be_same_size, err_context);
-    auto lend = lv.begin() + lv.size();
-	auto ritr = rv.begin();
-    float_type sum = 0;
-	for (auto litr = lv.begin(); litr != lend; ++litr, ++ritr)
-        sum += std::visit([&](auto lval, auto rval) -> float_type {
-            return lval * rval;
-        }, *litr, *ritr);
-    return sum;
-}
-
-template <typename CharT>
-float_type dot_op(const parser_val_type& lval_var, const parser_val_type& rval_var, const error_context<CharT>& err_context) {
-    return std::visit([&](const auto& lval, const auto& rval) -> float_type {
-        using LT = std::decay_t<decltype(lval)>;
-        using RT = std::decay_t<decltype(rval)>;
-        if constexpr (std::is_same_v<LT, list_type> && std::is_same_v<RT, list_type>)
-            return dot_op(lval, rval, err_context);
-        else
-            throw parse_error<CharT>(parse_error<CharT>::operands_must_be_lists, err_context);
-    }, lval_var, rval_var);
-}
-
 } // namespace tpcalc
 
 #endif // PARSER_VAL_TYPE_H
