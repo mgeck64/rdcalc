@@ -309,11 +309,9 @@ auto parser<CharT>::evaluate(const CharT* input) -> bool {
         last_val_ = 0.0;
         return false;
     }
-    do
-        last_val_ = std::move(expression(lexer));
-    while (lexer.peek_tok().id != token::end);
-    //if (lexer.get_tok().id != token::end)
-    //    throw parse_error(parse_error::syntax_error, lexer.cached_tok());
+    last_val_ = std::move(expression(lexer));
+    if (lexer.get_tok().id != token::end)
+        throw parse_error(parse_error::syntax_error, lexer.cached_tok());
     return true;
 }
 
