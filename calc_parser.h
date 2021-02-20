@@ -616,7 +616,7 @@ auto parser<CharT>::factor(lookahead_lexer& lexer) -> parser_val_type {
             if constexpr (std::is_integral_v<VT>)
                 return static_cast<VT>(~val);
             else
-                throw parse_error(parse_error::int_operand_expected, op_tok); 
+                throw parse_error(parse_error::int_operand_expected, op_tok);
         }, val_num);
     }
 
