@@ -30,13 +30,13 @@ struct parse_error {
         unexpected_end_of_input};
     static constexpr auto error_txt = std::array{
         // elements correspond with error_codes enums so enum can be used as index
-        "- no_error", "- lexer error", "- syntax error", "- number expected",
-        "is undefined", "was expected",
-        "- non-numeric operand was given", "- non-numeric operand was given",
-        "- integer operand expected", "- integer operands expected",
-        "- negative shift value is invalid", "- division by 0",
-        "- both operands must be lists", "- lists must be the same size",
-        "- unexpected end of input"};
+        "no_error", "lexer error", "syntax error", "number expected",
+        "undefined symbol", "was expected",
+        "numeric operand was expected", "numeric operands were expected",
+        "operand must have integer representation (check Mode)", "both operands must have integer representation (check Mode)",
+        "negative shift value is invalid", "division by 0",
+        "both operands must be lists", "lists must be the same size",
+        "unexpected end of input"};
 
     error_codes error = no_error;
     token tok; // warning: has string_view that may be bound to the input string or may be unbound default string view
@@ -86,32 +86,12 @@ auto parse_error<CharT>::error_str() const -> string {
         error_txt_ = error_txt.at(error);
     }
 
-    // an error message (error_txt) may have a dash prefix, such as "- syntax
-    // error", in which case it can be shown independently of the token, or it
-    // may be something like "is undefined", in which case it can't be shown
-    // independently of the token
-    typename string_view::size_type error_txt_prefix_len = 0;
-    if (*error_txt_ == '-') {
-        ++error_txt_prefix_len;
-        if (error_txt_[1] == ' ')
-            ++error_txt_prefix_len;
-    }
-
-    bool token_shown = false;
     if (error == tok_expected) {
         assert(char_helper::strlen(token::token_txt.at(expected_tok)));
         char_helper::append_to(error_str_buf, token::token_txt.at(expected_tok));
         char_helper::append_to(error_str_buf, " ");
-        token_shown = true;
-    } else if (!error_txt_prefix_len || !tok_str.empty()) { // !error_txt_prefix_len: error_txt_ can't be shown independently of the token, so show it even if blank
-        char_helper::append_to(error_str_buf, "\"");
-        char_helper::append_to(error_str_buf, tok_str);
-        char_helper::append_to(error_str_buf, "\" ");
-        token_shown = true;
     }
 
-    if (!token_shown)
-        error_txt_ += error_txt_prefix_len;
     char_helper::append_to(error_str_buf, error_txt_);
     char_helper::append_to(error_str_buf, ".");
 

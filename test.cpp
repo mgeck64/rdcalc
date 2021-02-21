@@ -25,13 +25,14 @@ int main() {
                 break;
             cout << outputter(parser.last_val()) << endl;
         } catch (const parse_error& e) {
-            cout << e.error_str() << endl;
             if (e.view_is_valid_for(line_buf.data())) {
-                cout << line_buf.data() << endl;
                 for (auto n = e.tok.tok_str.data() - line_buf.data(); n; --n)
-                    cout << '.';
-                cout << "^" << endl;
+                    cout << ' ';
+                for (auto n = max(e.tok.tok_str.size(), 1u); n; --n) // show at least one "hat" incase error is at end of line
+                    cout << '^';
+                cout << endl;
             }
+            cout << e.error_str() << endl;
         } catch (const internal_error& e) {
             cout << "Unexpected error in " << e.str << '.' << endl;
         }

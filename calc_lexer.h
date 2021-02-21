@@ -52,7 +52,7 @@ struct token {
     enum error_codes {no_error, integer_expected, out_of_range, invalid_number, mfac_unsupported};
     static constexpr auto error_txt = std::array{
         // elements correspond with error_codes enums so enum can be used as index
-        "no_error", "must be an integer", "is out of range", "is an invalid number", "- multifactorial is unsupported"};
+        "no_error", "must be integer type", "out of range", "invalid number", "multifactorial is unsupported"};
     error_codes error = no_error;
 
     token(token_ids id_, num_type num_val_, string_view tok_str_, error_codes error_) :
