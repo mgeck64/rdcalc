@@ -17,6 +17,7 @@ public:
 	using ostream = std::basic_ostream<CharT>;
 
 	outputter(radices radix) : radix_{radix}, output_fn{output_fn_for(radix)} {}
+		// radices::decimal and radices::base10 are equivalent here
 	outputter() = default;
 	outputter(const outputter&) = default;
 
