@@ -46,6 +46,8 @@ struct token {
     num_type num_val = float_type();
  
     enum radices : unsigned char {decimal = 0, base2 = 2, base8 = 8, base10 = 10, base16 = 16};
+        // decimal: for calculator input mode Floating Point Decimal
+        // base10: for calculator input mode Integer/Floating Point Decimal
 
     string_view tok_str = {}; // view of scanned token in input string, or default constructed view
 
