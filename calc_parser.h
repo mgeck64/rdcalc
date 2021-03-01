@@ -260,7 +260,7 @@ auto parser<CharT>::promoted(const parser_val_type& lval_var, const parser_val_t
 template <typename CharT>
 template <typename Fn>
 inline auto parser<CharT>::apply_promoted(const Fn& fn, const parser_val_type& lval_var, const parser_val_type& rval_var) -> auto {
-    auto [lval_var_, rval_var_] = std::move(promoted(lval_var, rval_var));
+    auto [lval_var_, rval_var_] = promoted(lval_var, rval_var);
     assert(lval_var_.index() == rval_var_.index());
     switch (lval_var_.index()) {
     case 0: return fn(std::get<std::variant_alternative_t<0, parser_val_type_base>>(lval_var_), std::get<std::variant_alternative_t<0, parser_val_type_base>>(rval_var_));
@@ -350,11 +350,11 @@ auto parser<CharT>::expression(lookahead_lexer& lexer) -> parser_val_type {
 template <typename CharT>
 auto parser<CharT>::arithmetic_expr(lookahead_lexer& lexer) -> parser_val_type {
 // <arithmetic expr> ::= <bor term> [ "|" <bor term> ]...
-    auto lval_num = std::move(bor_term(lexer));
+    auto lval_num = bor_term(lexer);
     for (;;) {
         if (lexer.peek_tok().id == token::bor) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(bor_term(lexer));
+            auto rval_num = bor_term(lexer);
             lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> parser_val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -373,11 +373,11 @@ auto parser<CharT>::arithmetic_expr(lookahead_lexer& lexer) -> parser_val_type {
 template <typename CharT>
 auto parser<CharT>::bor_term(lookahead_lexer& lexer) -> parser_val_type {
 // <bor term> ::= <bxor term> [ "^" <bxor term> ]...
-    auto lval_num = std::move(bxor_term(lexer));
+    auto lval_num = bxor_term(lexer);
     for (;;) {
         if (lexer.peek_tok().id == token::bxor) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(bxor_term(lexer));
+            auto rval_num = bxor_term(lexer);
             lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> parser_val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -396,11 +396,11 @@ auto parser<CharT>::bor_term(lookahead_lexer& lexer) -> parser_val_type {
 template <typename CharT>
 auto parser<CharT>::bxor_term(lookahead_lexer& lexer) -> parser_val_type {
 // <bxor term> ::= <band term> [ "&" <band term> ]...
-    auto lval_num = std::move(band_term(lexer));
+    auto lval_num = band_term(lexer);
     for (;;) {
         if (lexer.peek_tok().id == token::band) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(band_term(lexer));
+            auto rval_num = band_term(lexer);
             lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> parser_val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -437,7 +437,7 @@ auto parser<CharT>::band_term(lookahead_lexer& lexer) -> parser_val_type {
         return shift_arg < (sizeof(LVT) * std::numeric_limits<unsigned char>::digits);
     };
 
-    auto lval_num = std::move(shift_term(lexer));
+    auto lval_num = shift_term(lexer);
     for (;;) {
         if (lexer.peek_tok().id == token::ashiftl) {
             op_tok = lexer.get_tok();
@@ -505,15 +505,15 @@ auto parser<CharT>::band_term(lookahead_lexer& lexer) -> parser_val_type {
 template <typename CharT>
 auto parser<CharT>::shift_term(lookahead_lexer& lexer) -> parser_val_type {
 // <shift term> ::= <term> [ ( "+" | "-" ) <term> ]...
-    auto lval_num = std::move(term(lexer));
+    auto lval_num = term(lexer);
     for (;;) {
         if (lexer.peek_tok().id == token::add) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(term(lexer));
+            auto rval_num = term(lexer);
             lval_num = apply_op(add_op(), lval_num, rval_num, error_context{op_tok});
         } else if (lexer.peeked_tok().id == token::sub) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(term(lexer));
+            auto rval_num = term(lexer);
             lval_num = apply_op(sub_op(), lval_num, rval_num, error_context{op_tok});
         } else {
             break;
@@ -525,19 +525,19 @@ auto parser<CharT>::shift_term(lookahead_lexer& lexer) -> parser_val_type {
 template <typename CharT>
 auto parser<CharT>::term(lookahead_lexer& lexer) -> parser_val_type {
 // <term> ::= <factor> [ ( "*" | "/" | "%" | "." ) <factor> ]...
-    auto lval_num = std::move(factor(lexer));
+    auto lval_num = factor(lexer);
     for (;;) {
         if (lexer.peek_tok().id == token::mul) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(factor(lexer));
+            auto rval_num = factor(lexer);
             lval_num = apply_op(mul_op(), lval_num, rval_num, error_context{op_tok});
         } else if (lexer.peeked_tok().id == token::div) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(factor(lexer));
+            auto rval_num = factor(lexer);
             lval_num = apply_op(div_op(), lval_num, rval_num, error_context{op_tok});
         } else if (lexer.peek_tok().id == token::mod) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(factor(lexer));
+            auto rval_num = factor(lexer);
             lval_num = apply_promoted([&](const auto& lval, const auto& rval) -> parser_val_type {
                 using LVT = std::decay_t<decltype(lval)>;
                 using RVT = std::decay_t<decltype(rval)>;
@@ -551,7 +551,7 @@ auto parser<CharT>::term(lookahead_lexer& lexer) -> parser_val_type {
             }, lval_num, rval_num);
         } else if (lexer.peeked_tok().id == token::dot) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(factor(lexer));
+            auto rval_num = factor(lexer);
             lval_num = std::visit([&](const auto& lval, const auto& rval) -> float_type {
                 using LT = std::decay_t<decltype(lval)>;
                 using RT = std::decay_t<decltype(rval)>;
@@ -586,7 +586,7 @@ auto parser<CharT>::factor(lookahead_lexer& lexer) -> parser_val_type {
 // that would result in ~-1 being a syntax error, so it's here.
     if (lexer.peek_tok().id == token::add) { // unary +, basically do nothing
         auto op_tok = lexer.get_tok();
-        auto val_num = std::move(factor(lexer));
+        auto val_num = factor(lexer);
         return std::visit([&](const auto& val) -> parser_val_type {
             using VT = std::decay_t<decltype(val)>;
             if constexpr (std::is_floating_point_v<VT> || std::is_integral_v<VT>)
@@ -597,7 +597,7 @@ auto parser<CharT>::factor(lookahead_lexer& lexer) -> parser_val_type {
     }
     if (lexer.peeked_tok().id == token::sub) { // negation
         auto op_tok = lexer.get_tok();
-        auto val_num = std::move(factor(lexer));
+        auto val_num = factor(lexer);
         return std::visit([&](const auto& val) -> parser_val_type {
             using VT = std::decay_t<decltype(val)>;
             if constexpr (std::is_floating_point_v<VT> || std::is_signed_v<VT>)
@@ -610,7 +610,7 @@ auto parser<CharT>::factor(lookahead_lexer& lexer) -> parser_val_type {
     }
     if (lexer.peeked_tok().id == token::bnot) {
         auto op_tok = lexer.get_tok();
-        auto val_num = std::move(factor(lexer));
+        auto val_num = factor(lexer);
         return std::visit([&](auto val) -> parser_val_type {
             using VT = std::decay_t<decltype(val)>;
             if constexpr (std::is_integral_v<VT>)
@@ -620,11 +620,11 @@ auto parser<CharT>::factor(lookahead_lexer& lexer) -> parser_val_type {
         }, val_num);
     }
 
-    auto lval_num = std::move(primary_expression(lexer));
+    auto lval_num = primary_expression(lexer);
     for (;;) {
         if (lexer.peek_tok().id == token::pow) {
             auto op_tok = lexer.get_tok();
-            auto rval_num = std::move(factor(lexer));
+            auto rval_num = factor(lexer);
             lval_num = apply_op(exp_op(), lval_num, rval_num, error_context{op_tok});
         } else
             break;
@@ -901,7 +901,7 @@ inline auto parser<CharT>::quantile(const list_type& list, float_type percent) -
         list_.emplace_back(get_as<float_type>(val));
     std::sort(list_.begin(), list_.end());
 
-    float_type fidx = percent * static_cast<float_type>(list_.size() + 1) - 1.0f;
+    float_type fidx = percent * (static_cast<float_type>(list_.size()) + 1) - 1.0f;
     auto idx = static_cast<typename list_type::size_type>(fidx); // truncate to integer
     if (idx == list_.size()) // percent is 1 (not testing percent directly in case of precision error)
         return get_as<float_type>(list_.back());
