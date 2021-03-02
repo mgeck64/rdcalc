@@ -36,11 +36,11 @@ public:
     // disable copy/assignment; don't think can trivially copy vars_ below
     // because of how its elements bind to var_keys
 
-    enum int_result_tags : unsigned {
-        int8_tag, uint8_tag, int16_tag, uint16_tag, int32_tag, uint32_tag, int64_tag, uint64_tag};
-        // must correspond with parser_val_type's alternative integer types
-    auto int_result_tag() const -> auto {return int_result_tag_;}
-    void int_result_tag(int_result_tags int_result_tag);
+    enum int_result_types {
+        int8_type, uint8_type, int16_type, uint16_type, int32_type, uint32_type, int64_type, uint64_type};
+        // must correspond with parser_val_type's alternative integer types because this will serve as index
+    int_result_types int_result_type() const {return int_result_type_;}
+    void int_result_type(int_result_types int_result_type);
 
     auto default_radix() -> radices {return default_radix_;}
     auto default_radix(radices default_radix) -> void {default_radix_ = default_radix;}
@@ -65,7 +65,7 @@ public:
 
 private:
     radices default_radix_ = radices::decimal;
-    int_result_tags int_result_tag_ = int64_tag;
+    int_result_types int_result_type_ = int64_type;
 
     parser_val_type last_val_ = 0.0;
     // result of last evaluation of non-empty input, accessable in an input
@@ -87,7 +87,7 @@ private:
 
     auto casted(const parser_val_type& val_var) const -> parser_val_type;
     // if val_var is an integer type then this casts it to the type indicated by
-    // int_result_tag_; else (for float_type) this simply returns val_var
+    // int_result_type_; else (for float_type) this simply returns val_var
 
     // parser productions
     auto expression(lookahead_lexer& lexer) -> parser_val_type;
@@ -158,8 +158,8 @@ inline auto parser<CharT>::last_val() const -> parser_val_type {
 // implemented behavior
 
 template <typename CharT>
-void parser<CharT>::int_result_tag(int_result_tags int_result_tag) {
-    int_result_tag_ = int_result_tag;
+void parser<CharT>::int_result_type(int_result_types int_result_type) {
+    int_result_type_ = int_result_type;
     last_val_ = casted(last_val_);
     // cast last_val_ so that it shows that way on UI but also so the following
     // will work: if last_val_ was int16_t(255) and then was cast to int8_t,
@@ -178,7 +178,7 @@ auto parser<CharT>::casted(const parser_val_type& val_var) const -> parser_val_t
     return std::visit([&](const auto& val) -> parser_val_type {
         using VT = std::decay_t<decltype(val)>;
         if constexpr (std::is_integral_v<VT>)
-            return get_as(int_result_tag_, val_var);
+            return get_as(int_result_type_, val_var);
         else if constexpr (std::is_floating_point_v<VT> || std::is_same_v<VT, list_type>)
             return val;
             // TODO: for list_type, not sure if casted should be applied to
