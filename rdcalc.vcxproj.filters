@@ -68,5 +68,8 @@
     <ClInclude Include="parse_error.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="parser_num_type.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
