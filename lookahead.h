@@ -26,8 +26,8 @@ public:
     auto cached_tok() const -> const token& {return cached_tok_;}
 
     auto get_expected_tok(token_ids id) -> const token&;
-    // calls get_tok() to consume a token; throws parse_error if id doesn't
-    // match consumed token's id
+    // consumes a token; throws parse_error if id doesn't match the consumed
+    // token's id
 
     auto peek_tok() -> const token&; // peek at but don't consume token
     auto peeked_tok() const -> const token& {return peeked_tok_;}
