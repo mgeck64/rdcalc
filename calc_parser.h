@@ -471,6 +471,9 @@ auto parser<CharT>::term(lookahead_lexer& lexer) -> parser_val_type {
                     float_type sum = 0;
 	                for (auto litr = lval.begin(); litr != lend; ++litr, ++ritr)
                         sum += apply_promoted([](auto lval, auto rval) -> float_type {
+                            using LVT = std::decay_t<decltype(lval)>;
+                            using RVT = std::decay_t<decltype(rval)>;
+                            static_assert(std::is_same_v<LVT, RVT>);
                             return static_cast<float_type>(lval * rval);
                         }, *litr, *ritr);
                     return sum;
