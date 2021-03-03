@@ -9,6 +9,10 @@
 #include <functional>
 #include <algorithm>
 
+#pragma warning(disable : 26820) // assigning by value when reference would suffice.
+// tokens from lexer are being assigned by value not reference to avoid side
+// effect when next token is consumed
+
 namespace tpcalc {
 
 template <typename CharT> // CharT: char or wchar_t
@@ -960,5 +964,7 @@ auto parser<CharT>::qdev(const list_type& list) -> parser_val_type {
 }
 
 } // namespace parser
+
+#pragma warning(default : 26820) // re-enable
 
 #endif // CALC_PARSER_H
