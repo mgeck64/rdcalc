@@ -25,7 +25,7 @@ struct parse_error {
         undefined_identifier, tok_expected,
         num_operand_expected, num_operands_expected,
         int_operand_expected, int_operands_expected,
-        negative_shift_invalid, division_by_0,
+        negative_shift_invalid, integer_division_by_0,
         operands_must_be_lists, lists_must_be_same_size,
         unexpected_end_of_input};
     static constexpr auto error_txt = std::array{
@@ -33,8 +33,8 @@ struct parse_error {
         "no_error", "lexer error", "syntax error", "number expected",
         "undefined symbol", "was expected",
         "numeric operand was expected", "numeric operands were expected",
-        "operand must have integer representation (check input mode)", "both operands must have integer representation (check input mode)",
-        "negative shift value is invalid", "division by 0",
+        "operand must be represented as an integer type (check input mode)", "both operands must be represented as integer types (check input mode)",
+        "negative shift value is invalid", "integer division by 0",
         "both operands must be lists", "lists must be the same size",
         "unexpected end of input"};
 

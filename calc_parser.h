@@ -443,7 +443,7 @@ auto parser<CharT>::term(lookahead_lexer& lexer) -> parser_val_type {
                     return lval / rval; // let divide by 0 result in inf
                 else {
                     if (rval == 0)
-                        throw parse_error(parse_error::division_by_0, err_context);
+                        throw parse_error(parse_error::integer_division_by_0, err_context);
                     return lval / rval;
                 }
             }, lval_num, rval_num, error_context{op_tok});
@@ -456,7 +456,7 @@ auto parser<CharT>::term(lookahead_lexer& lexer) -> parser_val_type {
                 static_assert(std::is_same_v<LVT, RVT>);
                 if constexpr (std::is_integral_v<LVT>) {
                     if (rval == 0)
-                        throw parse_error(parse_error::division_by_0, op_tok);
+                        throw parse_error(parse_error::integer_division_by_0, op_tok);
                     return static_cast<LVT>(lval % rval);
                 } else
                     throw parse_error(parse_error::int_operands_expected, op_tok);
