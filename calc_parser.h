@@ -207,7 +207,7 @@ auto parser<CharT>::evaluate(const CharT* input) -> bool {
         last_val_ = 0.0;
         return false;
     }
-    last_val_ = std::move(expression(lexer));
+    last_val_ = expression(lexer);
     if (lexer.get_tok().id != token::end)
         throw parse_error(parse_error::syntax_error, lexer.cached_tok());
     return true;
@@ -233,15 +233,15 @@ auto parser<CharT>::expression(lookahead_lexer& lexer) -> parser_val_type {
             }
         } else if (pos == vars_.end()) {
         // variable not found; insert new one with <expression>
-            val = std::move(expression(lexer));
+            val = expression(lexer);
             auto var_key_pos = var_keys.emplace(string{key.begin(), key.end()});
             vars_.try_emplace(*var_key_pos, variable{var_key_pos, val});
         } else
         // variable found; assign to it <expression>
-            val = pos->second.val_var = std::move(expression(lexer));
+            val = pos->second.val_var = expression(lexer);
         notify_vars_changed();
     } else
-        val = std::move(arithmetic_expr(lexer));
+        val = arithmetic_expr(lexer);
     return val;
 }
 
@@ -564,11 +564,11 @@ auto parser<CharT>::primary_expression(lookahead_lexer& lexer) -> parser_val_typ
         }
         lval = casted(lval);
     } else if (lexer.peeked_tok().id == token::identifier)
-        lval = std::move(identifier(lexer));
+        lval = identifier(lexer);
     else if (lexer.peeked_tok().id == token::lparen)
-        lval = std::move(group(lexer));
+        lval = group(lexer);
     else if (lexer.peeked_tok().id == token::lsquare)
-        lval = std::move(list(lexer));
+        lval = list(lexer);
     else if (lexer.peeked_tok().id == token::end)
         throw parse_error(parse_error::unexpected_end_of_input, lexer.peeked_tok());
     else
@@ -638,7 +638,7 @@ template <typename CharT>
 auto parser<CharT>::group(lookahead_lexer& lexer) -> parser_val_type {
 // <group> ::= '(' <expression> ')'
     lexer.get_expected_tok(token::lparen);
-    parser_val_type val = std::move(expression(lexer));
+    parser_val_type val = expression(lexer);
     lexer.get_expected_tok(token::rparen);
     return val;
 }
@@ -654,7 +654,7 @@ auto parser<CharT>::list(lookahead_lexer& lexer) -> list_type {
                 list.insert(list.end(), val.begin(), val.end());
             else
                 list.emplace_back(val);
-        }, std::move(expression(lexer)));
+        }, expression(lexer));
         if (lexer.peek_tok().id != token::comma)
             break;
         tok = lexer.get_tok();
